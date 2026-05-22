@@ -1139,27 +1139,30 @@
 
             let data = JSON.parse(JSON.stringify(currentMultiLobbyData));
 
+            // 規則1：穿牆（wrap-around）
+            const wrapPos = (val, max) => {
+                if (val < 0) return max - GRID_SIZE;
+                if (val >= max) return 0;
+                return val;
+            };
+
             let p1Head = {
-                x: data.p1.snake[0].x + p1Direction.dx,
-                y: data.p1.snake[0].y + p1Direction.dy
+                x: wrapPos(data.p1.snake[0].x + p1Direction.dx, canvas.width),
+                y: wrapPos(data.p1.snake[0].y + p1Direction.dy, canvas.height)
             };
             let p2Head = {
-                x: data.p2.snake[0].x + p2Direction.dx,
-                y: data.p2.snake[0].y + p2Direction.dy
+                x: wrapPos(data.p2.snake[0].x + p2Direction.dx, canvas.width),
+                y: wrapPos(data.p2.snake[0].y + p2Direction.dy, canvas.height)
             };
 
-            const checkWallCollision = (head) =>
-                (head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height);
-
-            let p1Dead = checkWallCollision(p1Head);
-            let p2Dead = checkWallCollision(p2Head);
-
+            // 規則4：只判斷撞到對手蛇身（不判斷自撞，也不判斷牆壁）
             const checkBodyCollision = (head, body) =>
                 body.some(seg => seg.x === head.x && seg.y === head.y);
 
-            if (!p1Dead) p1Dead = checkBodyCollision(p1Head, data.p1.snake) || checkBodyCollision(p1Head, data.p2.snake);
-            if (!p2Dead) p2Dead = checkBodyCollision(p2Head, data.p2.snake) || checkBodyCollision(p2Head, data.p1.snake);
+            let p1Dead = checkBodyCollision(p1Head, data.p2.snake); // 只撞對手
+            let p2Dead = checkBodyCollision(p2Head, data.p1.snake); // 只撞對手
 
+            // 頭碰頭：雙方同時死亡
             if (p1Head.x === p2Head.x && p1Head.y === p2Head.y) { p1Dead = true; p2Dead = true; }
 
             if (!p1Dead) data.p1.snake.unshift(p1Head);
@@ -1186,11 +1189,23 @@
                 data.food = hostGenerateFood(data.p1.snake, data.p2.snake);
             }
 
+            // 規則3：先取得 300 分者勝利
+            const WIN_SCORE = 300;
+            if (data.p1.score >= WIN_SCORE && data.p2.score >= WIN_SCORE) {
+                p1Dead = true; p2Dead = true;
+            } else if (data.p1.score >= WIN_SCORE) {
+                data.status = 'gameover'; data.winner = 'p1';
+            } else if (data.p2.score >= WIN_SCORE) {
+                data.status = 'gameover'; data.winner = 'p2';
+            }
+
             if (p1Dead || p2Dead) {
                 data.status = 'gameover';
-                if (p1Dead && p2Dead) data.winner = 'draw';
-                else if (p1Dead) data.winner = 'p2';
-                else data.winner = 'p1';
+                if (!data.winner) {
+                    if (p1Dead && p2Dead) data.winner = 'draw';
+                    else if (p1Dead) data.winner = 'p2';
+                    else data.winner = 'p1';
+                }
             }
 
             currentMultiLobbyData = data;
@@ -1265,17 +1280,59 @@
         function localMultiplayerTick() {
             if (isPaused || isGameOver) return;
 
-            let p1Head = { x: localP1Snake[0].x + localP1Dir.dx, y: localP1Snake[0].y + localP1Dir.dy };
-            let p2Head = { x: localP2Snake[0].x + localP2Dir.dx, y: localP2Snake[0].y + localP2Dir.dy };
+            // 規則1：穿牆
+            const wrapPos = (val, max) => {
+                if (val < 0) return max - GRID_SIZE;
+                if (val >= max) return 0;
+                return val;
+            };
 
-            const checkWall = (h) => (h.x < 0 || h.x >= canvas.width || h.y < 0 || h.y >= canvas.height);
+            let p1Head = {
+                x: wrapPos(localP1Snake[0].x + localP1Dir.dx, canvas.width),
+                y: wrapPos(localP1Snake[0].y + localP1Dir.dy, canvas.height)
+            };
+            let p2Head = {
+                x: wrapPos(localP2Snake[0].x + localP2Dir.dx, canvas.width),
+                y: wrapPos(localP2Snake[0].y + localP2Dir.dy, canvas.height)
+            };
+
+            // 規則4：只判斷撞到對手蛇身
             const checkBody = (h, s) => s.some(seg => seg.x === h.x && seg.y === h.y);
-
-            let p1Dead = checkWall(p1Head) || checkBody(p1Head, localP1Snake) || checkBody(p1Head, localP2Snake);
-            let p2Dead = checkWall(p2Head) || checkBody(p2Head, localP2Snake) || checkBody(p2Head, localP1Snake);
+            let p1Dead = checkBody(p1Head, localP2Snake);
+            let p2Dead = checkBody(p2Head, localP1Snake);
 
             if (p1Head.x === p2Head.x && p1Head.y === p2Head.y) {
                 p1Dead = true; p2Dead = true;
+            }
+
+            // 規則3：先取得 300 分者勝利
+            const WIN_SCORE = 300;
+            if (localP1Score >= WIN_SCORE && localP2Score >= WIN_SCORE) {
+                p1Dead = true; p2Dead = true;
+            } else if (localP1Score >= WIN_SCORE) {
+                isGameOver = true;
+                clearInterval(multiGameInterval);
+                playSound('special');
+                multiWinnerTitle.textContent = "🔵 藍蛇 (P1) 獲勝！";
+                multiOverReason.textContent = "藍蛇率先達到 300 分！";
+                p1FinalScore.textContent = localP1Score;
+                p2FinalScore.textContent = localP2Score;
+                singleOverPanel.classList.add('hidden');
+                multiOverPanel.classList.remove('hidden');
+                gameoverOverlay.classList.remove('hidden');
+                return;
+            } else if (localP2Score >= WIN_SCORE) {
+                isGameOver = true;
+                clearInterval(multiGameInterval);
+                playSound('special');
+                multiWinnerTitle.textContent = "🟠 橘蛇 (P2) 獲勝！";
+                multiOverReason.textContent = "橘蛇率先達到 300 分！";
+                p1FinalScore.textContent = localP1Score;
+                p2FinalScore.textContent = localP2Score;
+                singleOverPanel.classList.add('hidden');
+                multiOverPanel.classList.remove('hidden');
+                gameoverOverlay.classList.remove('hidden');
+                return;
             }
 
             if (p1Dead || p2Dead) {
@@ -1286,18 +1343,17 @@
                 let winnerMsg = "平手！雙方相撞！";
                 let reason = "雙方同時發生碰撞！";
                 if (p1Dead && !p2Dead) {
-                    winnerMsg = "橘蛇 (P2) 獲勝！";
-                    reason = "藍蛇 (P1) 發生碰撞死亡！";
+                    winnerMsg = "🟠 橘蛇 (P2) 獲勝！";
+                    reason = "藍蛇 (P1) 撞上了橘蛇的身體！";
                 } else if (p2Dead && !p1Dead) {
-                    winnerMsg = "藍蛇 (P1) 獲勝！";
-                    reason = "橘蛇 (P2) 發生碰撞死亡！";
+                    winnerMsg = "🔵 藍蛇 (P1) 獲勝！";
+                    reason = "橘蛇 (P2) 撞上了藍蛇的身體！";
                 }
 
                 multiWinnerTitle.textContent = winnerMsg;
                 multiOverReason.textContent = reason;
                 p1FinalScore.textContent = localP1Score;
                 p2FinalScore.textContent = localP2Score;
-
                 singleOverPanel.classList.add('hidden');
                 multiOverPanel.classList.remove('hidden');
                 gameoverOverlay.classList.remove('hidden');
@@ -1308,7 +1364,7 @@
             localP2Snake.unshift(p2Head);
 
             if (p1Head.x === localFood.x && p1Head.y === localFood.y) {
-                localP1Score += 10;
+                localP1Score += localFood.type === 'GOLD' ? 30 : 10;
                 playSound('eat');
                 localFood = hostGenerateFood(localP1Snake, localP2Snake);
             } else {
@@ -1316,7 +1372,7 @@
             }
 
             if (p2Head.x === localFood.x && p2Head.y === localFood.y) {
-                localP2Score += 10;
+                localP2Score += localFood.type === 'GOLD' ? 30 : 10;
                 playSound('eat');
                 if (p1Head.x !== localFood.x || p1Head.y !== localFood.y) {
                     localFood = hostGenerateFood(localP1Snake, localP2Snake);
@@ -1340,23 +1396,30 @@
         function handleMultiplayerGameOver(data) {
             isGameOver = true;
             clearInterval(multiGameInterval);
-            playSound('die');
+
+            const p1Score = data.p1 ? data.p1.score : 0;
+            const p2Score = data.p2 ? data.p2.score : 0;
+            const WIN_SCORE = 300;
 
             let winnerText = "雙方平手！";
-            let reasonText = "兩條蛇在同一個瞬間發生了碰撞！";
+            let reasonText = "兩條蛇在同一個瞬間相撞！";
 
             if (data.winner === 'p1') {
                 winnerText = "🔵 藍蛇 (房主) 獲勝！";
-                reasonText = "橘蛇不小心發生碰撞死亡！";
+                reasonText = p1Score >= WIN_SCORE ? `藍蛇率先達到 ${WIN_SCORE} 分！` : "橘蛇撞上了藍蛇的身體！";
+                playSound('special');
             } else if (data.winner === 'p2') {
                 winnerText = "🟠 橘蛇 (訪客) 獲勝！";
-                reasonText = "藍蛇不小心發生碰撞死亡！";
+                reasonText = p2Score >= WIN_SCORE ? `橘蛇率先達到 ${WIN_SCORE} 分！` : "藍蛇撞上了橘蛇的身體！";
+                playSound('special');
+            } else {
+                playSound('die');
             }
 
             multiWinnerTitle.textContent = winnerText;
             multiOverReason.textContent = reasonText;
-            p1FinalScore.textContent = data.p1.score;
-            p2FinalScore.textContent = data.p2.score;
+            p1FinalScore.textContent = p1Score;
+            p2FinalScore.textContent = p2Score;
 
             singleOverPanel.classList.add('hidden');
             multiOverPanel.classList.remove('hidden');
@@ -1505,8 +1568,9 @@
 
         function changeDirection(newDx, newDy) {
             if (!isMultiplayerMode) {
-                if (newDx !== 0 && dx !== 0) return;
-                if (newDy !== 0 && dy !== 0) return;
+                // 規則2：禁止180度反向（朝右時不能直接往左，以此類推）
+                if (newDx !== 0 && newDx === -dx) return;
+                if (newDy !== 0 && newDy === -dy) return;
                 nextDirection = { dx: newDx, dy: newDy };
             } else {
                 if (lobbyId === 'LOCAL') {
@@ -1514,12 +1578,14 @@
                 }
 
                 if (playerRole === 'p1') {
-                    if (newDx !== 0 && p1Direction.dx !== 0) return;
-                    if (newDy !== 0 && p1Direction.dy !== 0) return;
+                    // 規則2：禁止180度反向
+                    if (newDx !== 0 && newDx === -p1Direction.dx) return;
+                    if (newDy !== 0 && newDy === -p1Direction.dy) return;
                     p1Direction = { dx: newDx, dy: newDy };
                 } else if (playerRole === 'p2') {
-                    if (newDx !== 0 && p2Direction.dx !== 0) return;
-                    if (newDy !== 0 && p2Direction.dy !== 0) return;
+                    // 規則2：禁止180度反向
+                    if (newDx !== 0 && newDx === -p2Direction.dx) return;
+                    if (newDy !== 0 && newDy === -p2Direction.dy) return;
                     p2Direction = { dx: newDx, dy: newDy };
 
                     // 透過 PeerJS 傳送方向給 P1 (host)
@@ -1535,17 +1601,17 @@
             }
 
             if (isMultiplayerMode && lobbyId === 'LOCAL') {
-                // P1: WASD
-                if (e.key === 'w' || e.key === 'W') { if (localP1Dir.dy === 0) localP1Dir = { dx: 0, dy: -GRID_SIZE }; }
-                if (e.key === 's' || e.key === 'S') { if (localP1Dir.dy === 0) localP1Dir = { dx: 0, dy: GRID_SIZE }; }
-                if (e.key === 'a' || e.key === 'A') { if (localP1Dir.dx === 0) localP1Dir = { dx: -GRID_SIZE, dy: 0 }; }
-                if (e.key === 'd' || e.key === 'D') { if (localP1Dir.dx === 0) localP1Dir = { dx: GRID_SIZE, dy: 0 }; }
+                // P1: WASD — 規則2：禁止180度反向
+                if (e.key === 'w' || e.key === 'W') { if (localP1Dir.dy !== GRID_SIZE) localP1Dir = { dx: 0, dy: -GRID_SIZE }; }
+                if (e.key === 's' || e.key === 'S') { if (localP1Dir.dy !== -GRID_SIZE) localP1Dir = { dx: 0, dy: GRID_SIZE }; }
+                if (e.key === 'a' || e.key === 'A') { if (localP1Dir.dx !== GRID_SIZE) localP1Dir = { dx: -GRID_SIZE, dy: 0 }; }
+                if (e.key === 'd' || e.key === 'D') { if (localP1Dir.dx !== -GRID_SIZE) localP1Dir = { dx: GRID_SIZE, dy: 0 }; }
 
-                // P2: 方向鍵
-                if (e.key === 'ArrowUp') { if (localP2Dir.dy === 0) localP2Dir = { dx: 0, dy: -GRID_SIZE }; }
-                if (e.key === 'ArrowDown') { if (localP2Dir.dy === 0) localP2Dir = { dx: 0, dy: GRID_SIZE }; }
-                if (e.key === 'ArrowLeft') { if (localP2Dir.dx === 0) localP2Dir = { dx: -GRID_SIZE, dy: 0 }; }
-                if (e.key === 'ArrowRight') { if (localP2Dir.dx === 0) localP2Dir = { dx: GRID_SIZE, dy: 0 }; }
+                // P2: 方向鍵 — 規則2：禁止180度反向
+                if (e.key === 'ArrowUp')    { if (localP2Dir.dy !== GRID_SIZE)  localP2Dir = { dx: 0, dy: -GRID_SIZE }; }
+                if (e.key === 'ArrowDown')  { if (localP2Dir.dy !== -GRID_SIZE) localP2Dir = { dx: 0, dy: GRID_SIZE }; }
+                if (e.key === 'ArrowLeft')  { if (localP2Dir.dx !== GRID_SIZE)  localP2Dir = { dx: -GRID_SIZE, dy: 0 }; }
+                if (e.key === 'ArrowRight') { if (localP2Dir.dx !== -GRID_SIZE) localP2Dir = { dx: GRID_SIZE, dy: 0 }; }
                 return;
             }
 
