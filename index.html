@@ -1,0 +1,1732 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>究極進化貪食蛇 | 雙人遠端對戰版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            /* 預設：暖陽米白 (Minimal Light) */
+            --bg-color: #F6F5F2;
+            --grid-bg: #EFECE6;
+            --grid-line: #E2DDD4;
+            --charcoal: #2D2D2D;
+            --charcoal-light: #4A4A4A;
+            --primary: #2D2D2D;
+            --primary-invert: #F6F5F2;
+            --border-color: #2D2D2D;
+            --p1-color: #3B82F6;
+            --p2-color: #F97316;
+        }
+
+        /* 暗黑主題 (Charcoal Dark) */
+        .theme-dark {
+            --bg-color: #1A1A1A;
+            --grid-bg: #222222;
+            --grid-line: #2D2D2D;
+            --charcoal: #E5E5E5;
+            --charcoal-light: #A3A3A3;
+            --primary: #E5E5E5;
+            --primary-invert: #1A1A1A;
+            --border-color: #E5E5E5;
+        }
+
+        /* 復古掌機主題 (Retro GameBoy) */
+        .theme-gameboy {
+            --bg-color: #8BAC0F;
+            --grid-bg: #9BBC0F;
+            --grid-line: #8BAC0F;
+            --charcoal: #0F380F;
+            --charcoal-light: #306230;
+            --primary: #0F380F;
+            --primary-invert: #9BBC0F;
+            --border-color: #0F380F;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--charcoal);
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* 遊戲畫布邊框 */
+        .canvas-container {
+            border: 3px solid var(--border-color);
+            background-color: var(--grid-bg);
+            box-shadow: 6px 6px 0px var(--border-color);
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        /* 搖桿按鈕過渡動畫 */
+        .dpad-btn {
+            background-color: var(--bg-color);
+            border: 2px solid var(--border-color);
+            color: var(--charcoal);
+            transition: all 0.1s ease;
+        }
+        .dpad-btn:active {
+            background-color: var(--charcoal);
+            color: var(--primary-invert);
+            transform: scale(0.92);
+        }
+
+        /* 控制按鈕通用樣式 */
+        .custom-btn {
+            background-color: var(--charcoal);
+            color: var(--primary-invert);
+            border: 2px solid var(--border-color);
+            transition: all 0.2s ease;
+        }
+        .custom-btn:hover {
+            background-color: var(--bg-color);
+            color: var(--charcoal);
+        }
+        .custom-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        /* 氣泡對話框動畫 */
+        @keyframes popBubble {
+            0% { transform: scale(0) translateY(10px); opacity: 0; }
+            15% { transform: scale(1) translateY(0); opacity: 1; }
+            85% { transform: scale(1) translateY(0); opacity: 1; }
+            100% { transform: scale(0) translateY(-10px); opacity: 0; }
+        }
+        .chat-bubble-anim {
+            animation: popBubble 3s forwards ease-out;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-3 sm:p-6 overflow-x-hidden">
+
+    <div class="w-full max-w-md flex flex-col items-center">
+        
+        <!-- 頂部：標題與主題切換 -->
+        <header class="w-full flex justify-between items-center mb-2">
+            <h1 class="text-2xl font-black tracking-wider uppercase">ULTIMATE SNAKE</h1>
+            
+            <!-- 主題切換器 -->
+            <div class="flex gap-1 bg-black/5 p-1 rounded-lg">
+                <button onclick="setTheme('light')" class="w-6 h-6 rounded-full bg-[#F6F5F2] border border-gray-400" title="暖陽米白"></button>
+                <button onclick="setTheme('dark')" class="w-6 h-6 rounded-full bg-[#1A1A1A] border border-gray-600" title="極客極黑"></button>
+                <button onclick="setTheme('gameboy')" class="w-6 h-6 rounded-full bg-[#8BAC0F] border border-[#0F380F]" title="復古掌機"></button>
+            </div>
+        </header>
+
+        <!-- 模式切換與功能列 -->
+        <div class="w-full flex justify-between items-center mb-3 text-xs font-bold gap-2">
+            <!-- 模式選擇 (單人 vs 多人) -->
+            <div class="flex gap-1 border-2 border-[var(--border-color)] p-1 bg-black/5 rounded-md">
+                <button id="tab-single-btn" class="px-2 py-1 rounded bg-[var(--charcoal)] text-[var(--primary-invert)]" onclick="switchMainTab('single')">單人遊玩</button>
+                <button id="tab-multi-btn" class="px-2 py-1 rounded text-[var(--charcoal)]" onclick="switchMainTab('multi')">遠端對戰 🌐</button>
+            </div>
+            
+            <!-- 靜音切換 -->
+            <button id="mute-btn" onclick="toggleMute()" class="border-2 border-[var(--border-color)] px-2 py-1 rounded-md bg-transparent flex items-center gap-1">
+                <span id="mute-icon">🔊</span>
+            </button>
+        </div>
+
+        <!-- 1. 單人模式看板 -->
+        <div id="single-scoreboard" class="w-full flex justify-between px-3 py-2 border-2 border-b-0 border-[var(--border-color)] font-bold text-sm bg-black/5">
+            <span id="current-mode-display">模式: 穿透無牆</span>
+            <div class="flex gap-4">
+                <span>得分: <span id="score" class="text-lg">0</span></span>
+                <span>最高: <span id="highscore">0</span></span>
+            </div>
+        </div>
+
+        <!-- 2. 多人對戰看板 -->
+        <div id="multi-scoreboard" class="w-full hidden flex-col border-2 border-b-0 border-[var(--border-color)] font-bold text-xs bg-black/5 p-2">
+            <div class="flex justify-between items-center mb-1">
+                <span class="text-blue-500">P1 藍蛇 (房主): <span id="p1-score-display" class="text-sm">0</span></span>
+                <span class="text-orange-500">P2 橘蛇 (訪客): <span id="p2-score-display" class="text-sm">0</span></span>
+            </div>
+            <div class="text-center text-[10px] text-gray-500" id="room-id-display">
+                房間號碼: --
+            </div>
+        </div>
+
+        <div class="relative w-full aspect-square canvas-container overflow-hidden">
+            <canvas id="gameCanvas" width="400" height="400" class="block w-full h-full"></canvas>
+
+            <!-- 浮動喊話泡泡 -->
+            <div id="chat-bubble-p1" class="absolute hidden bg-blue-100 text-blue-800 border-2 border-blue-400 px-3 py-1 rounded-xl text-xs font-bold shadow-lg chat-bubble-anim" style="top: 25%; left: 10%;"></div>
+            <div id="chat-bubble-p2" class="absolute hidden bg-orange-100 text-orange-800 border-2 border-orange-400 px-3 py-1 rounded-xl text-xs font-bold shadow-lg chat-bubble-anim" style="top: 25%; right: 10%;"></div>
+
+            <!-- 單人遊戲開始遮罩 -->
+            <div id="start-overlay" class="absolute inset-0 bg-[var(--bg-color)]/95 flex flex-col items-center justify-center p-6 text-center z-10">
+                <h2 class="text-3xl font-black mb-1">究極貪食蛇</h2>
+                <p class="text-xs opacity-75 mb-4 font-semibold" id="mode-desc-text">【穿透模式】蛇可以自由穿透四壁！小心別撞到自己的身體，努力吃掉各種道具！</p>
+                
+                <!-- 單人模式子選單 -->
+                <div class="flex gap-1 mb-4 border border-[var(--border-color)] p-1 rounded bg-black/5 text-[10px] font-bold">
+                    <button id="smode-wrap" class="px-2 py-1 bg-[var(--charcoal)] text-[var(--primary-invert)] rounded" onclick="changeSingleMode('WRAP')">穿透</button>
+                    <button id="smode-wall" class="px-2 py-1 rounded text-[var(--charcoal)]" onclick="changeSingleMode('WALL')">撞牆</button>
+                    <button id="smode-survival" class="px-2 py-1 rounded text-[var(--charcoal)]" onclick="changeSingleMode('SURVIVAL')">生存迷宮</button>
+                </div>
+
+                <!-- 速度選擇 -->
+                <div class="flex gap-2 mb-4 items-center">
+                    <span class="text-xs font-bold">速度：</span>
+                    <button class="diff-btn text-xs border border-[var(--border-color)] px-2 py-1" onclick="setSpeed(140, this)">悠閒</button>
+                    <button class="diff-btn text-xs border border-[var(--border-color)] px-2 py-1 bg-[var(--charcoal)] text-[var(--primary-invert)]" onclick="setSpeed(90, this)">標準</button>
+                    <button class="diff-btn text-xs border border-[var(--border-color)] px-2 py-1" onclick="setSpeed(50, this)">狂暴</button>
+                </div>
+
+                <!-- 道具圖鑑說明 -->
+                <div class="grid grid-cols-3 gap-2 w-full max-w-xs mb-4 text-[10px] bg-black/5 p-2 rounded-md font-bold">
+                    <div class="flex flex-col items-center">
+                        <span class="text-base">▪</span>
+                        <span>普通果 (+10)</span>
+                    </div>
+                    <div class="flex flex-col items-center text-yellow-500">
+                        <span class="text-base">★</span>
+                        <span>黃金果 (+30)</span>
+                    </div>
+                    <div class="flex flex-col items-center text-blue-500">
+                        <span class="text-base">▲</span>
+                        <span>縮水藥 (-2長度)</span>
+                    </div>
+                </div>
+
+                <button onclick="startGame()" class="custom-btn px-8 py-3 font-bold text-sm tracking-widest uppercase rounded-lg">啟動遊戲</button>
+            </div>
+
+            <div id="multi-overlay" class="absolute inset-0 bg-[var(--bg-color)]/95 flex flex-col items-center justify-center p-4 text-center z-10 hidden overflow-y-auto">
+                <h2 class="text-2xl font-black mb-1">遠端對戰大廳</h2>
+                <p class="text-[10px] opacity-75 mb-3 max-w-xs font-semibold">房主為藍蛇，訪客為橘蛇。撞牆、自撞或相撞即告戰敗！搶奪果子獲得最高分！</p>
+
+                <!-- 未建立/加入房間畫面 -->
+                <div id="multi-setup-panel" class="w-full max-w-xs flex flex-col gap-2.5">
+                    <button id="create-room-btn" onclick="createRoom()" class="custom-btn w-full py-2.5 font-bold text-xs uppercase rounded-lg">
+                        🆕 建立對戰房間 (我是房主)
+                    </button>
+                    
+                    <div class="flex items-center my-0.5">
+                        <hr class="flex-grow border-[var(--border-color)] opacity-30">
+                        <span class="px-2 text-[10px] font-bold opacity-50">或</span>
+                        <hr class="flex-grow border-[var(--border-color)] opacity-30">
+                    </div>
+
+                    <div class="flex gap-2">
+                        <input id="room-input" type="text" placeholder="輸入房間代碼" class="flex-grow border-2 border-[var(--border-color)] bg-transparent px-3 py-2 text-xs font-bold rounded-lg outline-none">
+                        <button onclick="joinRoomFromInput()" class="custom-btn px-4 py-2 text-xs font-bold rounded-lg">加入</button>
+                    </div>
+
+                    <!-- PeerJS 連線說明 -->
+                    <div class="p-2 border border-dashed border-blue-400 bg-blue-50/50 rounded-lg text-left mt-1 text-[11px]">
+                        <span class="text-[10px] font-bold text-blue-700 block mb-0.5">💡 P2P 直連，免設定即可使用！</span>
+                        <p class="text-[9px] text-gray-500 leading-relaxed">
+                            建立房間後，將邀請代碼傳給朋友，對方輸入代碼即可直接加入對戰。不需要任何帳號或設定！
+                        </p>
+                    </div>
+                </div>
+
+                <!-- 已在房間內等待畫面 -->
+                <div id="multi-lobby-panel" class="w-full max-w-xs flex flex-col gap-3 hidden">
+                    <div class="bg-black/5 p-3 rounded-lg border border-[var(--border-color)] text-left">
+                        <div class="flex justify-between text-xs font-bold mb-1">
+                            <span>房間代碼:</span>
+                            <span id="lobby-code-val" class="text-blue-500">----</span>
+                        </div>
+                        <div class="flex justify-between text-xs font-bold mb-3">
+                            <span>對戰模式:</span>
+                            <span class="text-red-500">鋼鐵牆 (撞牆死)</span>
+                        </div>
+                        <div class="border-t border-gray-300 pt-2 flex flex-col gap-1 text-[11px] font-semibold">
+                            <div class="flex justify-between">
+                                <span class="text-blue-500">🔵 玩家 1 (房主):</span>
+                                <span id="lobby-p1-status" class="opacity-60">等待中...</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-orange-500">🟠 玩家 2 (訪客):</span>
+                                <span id="lobby-p2-status" class="opacity-60">等待中...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 邀請連結（智慧偵測：如果是本機網址則顯示上線指南） -->
+                    <div id="share-link-section" class="flex flex-col gap-1.5 w-full">
+                        <div class="flex gap-1.5 w-full">
+                            <input id="share-link-input" readonly type="text" value="" onclick="this.select(); try{ document.execCommand('copy'); }catch(e){}" class="flex-grow border-2 border-[var(--border-color)] bg-black/5 px-2 py-1.5 text-[11px] font-bold rounded-lg outline-none select-all text-center cursor-pointer" title="點擊即可自動全選與嘗試複製">
+                            <button onclick="copyShareLink()" class="px-3 py-1.5 text-[10px] font-bold border-2 border-[var(--border-color)] bg-white active:bg-gray-200 rounded-lg">複製</button>
+                        </div>
+                        <p class="text-[9px] text-gray-500 font-semibold text-center leading-normal">💡 邀請網址內含連線配置。您的朋友點開後不需任何設定即可一秒對戰！</p>
+                    </div>
+
+                    <!-- 行動按鈕 -->
+                    <div class="flex gap-2 mt-1">
+                        <button onclick="leaveRoom()" class="flex-1 border-2 border-red-500 text-red-500 font-bold py-2 text-xs rounded-lg hover:bg-red-50">離開房間</button>
+                        <button id="start-multi-btn" disabled onclick="startMultiplayerGame()" class="flex-1 custom-btn py-2 text-xs font-bold rounded-lg">開始對戰 ⚔️</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. 遊戲結束遮罩 -->
+            <div id="gameover-overlay" class="absolute inset-0 bg-[var(--bg-color)]/95 flex flex-col items-center justify-center p-6 text-center z-10 hidden">
+                <h2 class="text-3xl font-black text-red-500 mb-2">GAME OVER</h2>
+                
+                <!-- 單人結束數據 -->
+                <div id="single-over-panel" class="hidden">
+                    <div class="text-lg font-bold mb-1">最後得分：<span id="final-score" class="text-2xl">0</span></div>
+                    <div id="gameover-reason" class="text-xs opacity-75 mb-6 font-semibold">你撞到了自己！</div>
+                    <button onclick="startGame()" class="custom-btn px-8 py-3 font-bold text-sm tracking-widest uppercase rounded-lg">再應戰一次</button>
+                </div>
+
+                <!-- 多人對戰結束數據 -->
+                <div id="multi-over-panel" class="hidden w-full max-w-xs">
+                    <div class="text-2xl font-black mb-1" id="multi-winner-title">藍蛇 獲勝！</div>
+                    <div class="text-xs font-bold mb-4 opacity-75" id="multi-over-reason">橘蛇不小心撞到了牆壁！</div>
+                    
+                    <div class="bg-black/5 p-3 rounded-lg border border-[var(--border-color)] mb-6 text-xs font-semibold text-left flex flex-col gap-1">
+                        <div class="flex justify-between text-blue-500">
+                            <span>藍蛇 (P1) 得分:</span>
+                            <span id="p1-final-score">0</span>
+                        </div>
+                        <div class="flex justify-between text-orange-500">
+                            <span>橘蛇 (P2) 得分:</span>
+                            <span id="p2-final-score">0</span>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button onclick="returnToLobby()" class="flex-1 border-2 border-[var(--border-color)] font-bold py-2 text-xs rounded-lg bg-white">返回大廳</button>
+                        <button id="rematch-btn" onclick="requestRematch()" class="flex-1 custom-btn py-2 text-xs font-bold rounded-lg">再次挑戰</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 戰術喊話面板 (只在多人模式中顯示) -->
+        <div id="quick-chat-panel" class="w-full mt-2 hidden flex-col border-2 border-[var(--border-color)] p-2 bg-black/5 rounded-lg">
+            <span class="text-[10px] font-bold mb-1 text-gray-500">⚡ 即時戰術喊話：</span>
+            <div class="grid grid-cols-4 gap-1.5">
+                <button onclick="sendQuickChat('哈哈！😆')" class="border border-gray-400 bg-white hover:bg-gray-100 py-1 text-[10px] font-bold rounded">哈哈！</button>
+                <button onclick="sendQuickChat('可惡！😠')" class="border border-gray-400 bg-white hover:bg-gray-100 py-1 text-[10px] font-bold rounded">可惡！</button>
+                <button onclick="sendQuickChat('差一點！🎯')" class="border border-gray-400 bg-white hover:bg-gray-100 py-1 text-[10px] font-bold rounded">差一點</button>
+                <button onclick="sendQuickChat('再來一局！🔥')" class="border border-gray-400 bg-white hover:bg-gray-100 py-1 text-[10px] font-bold rounded">再一局</button>
+            </div>
+        </div>
+
+        <!-- 手機板虛擬搖桿 -->
+        <div class="w-full mt-4 flex flex-col items-center sm:hidden">
+            <div class="grid grid-cols-3 gap-2 w-44 h-44">
+                <div></div>
+                <button class="dpad-btn rounded-xl flex items-center justify-center text-2xl font-black" id="btn-up">↑</button>
+                <div></div>
+                
+                <button class="dpad-btn rounded-xl flex items-center justify-center text-2xl font-black" id="btn-left">←</button>
+                <div class="flex items-center justify-center text-[10px] font-bold opacity-30 select-none">D-PAD</div>
+                <button class="dpad-btn rounded-xl flex items-center justify-center text-2xl font-black" id="btn-right">→</button>
+                
+                <div></div>
+                <button class="dpad-btn rounded-xl flex items-center justify-center text-2xl font-black" id="btn-down">↓</button>
+                <div></div>
+            </div>
+        </div>
+
+        <footer class="mt-4 text-[10px] font-semibold text-center opacity-60 leading-relaxed max-w-xs">
+            電腦玩家可使用 <b>方向鍵 / WASD</b> 操控移動。<br>
+            單人模式按下 <b>空白鍵 (Space)</b> 可隨時暫停。<br>
+            極簡究極美學 © 2026 Ultimate Arcade.
+        </footer>
+    </div>
+
+    <!-- PeerJS 載入 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+    <script>
+        // === PeerJS 多人連線模組 ===
+        // P1 (房主) 建立 Peer，lobbyId 即為其 PeerID
+        // P2 (訪客) 連接到 P1 的 PeerID
+        // 訊息格式: { type: 'dir'|'start'|'gameover'|'chat'|'rematch'|'lobby_back', payload: ... }
+
+        let peer = null;        // 本地 Peer 實例
+        let conn = null;        // 連線物件 (P1 端: DataConnection from P2; P2 端: DataConnection to P1)
+        let peerUserId = 'snake_' + Math.random().toString(36).substring(2, 8).toUpperCase();
+
+        function initPeer(customId, onOpenCb, onErrorCb) {
+            if (peer) { peer.destroy(); peer = null; conn = null; }
+            peer = new Peer(customId, {
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ]
+                }
+            });
+            peer.on('open', (id) => {
+                console.log('PeerJS 已開啟，ID:', id);
+                if (onOpenCb) onOpenCb(id);
+            });
+            peer.on('error', (err) => {
+                console.error('PeerJS 錯誤:', err);
+                if (onErrorCb) onErrorCb(err);
+            });
+            return peer;
+        }
+
+        function sendToPeer(msg) {
+            if (conn && conn.open) {
+                conn.send(msg);
+            }
+        }
+
+        window.peerModule = { initPeer, sendToPeer, getPeer: () => peer, getConn: () => conn, setConn: (c) => { conn = c; } };
+    </script>
+
+    <script>
+        // 取得 DOM 元素
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const highscoreEl = document.getElementById('highscore');
+        const modeDisplay = document.getElementById('current-mode-display');
+        const startOverlay = document.getElementById('start-overlay');
+        const gameoverOverlay = document.getElementById('gameover-overlay');
+        const finalScoreEl = document.getElementById('final-score');
+        const gameoverReasonEl = document.getElementById('gameover-reason');
+        const modeDescText = document.getElementById('mode-desc-text');
+        const muteIcon = document.getElementById('mute-icon');
+
+        // 多人對戰 DOM 元素
+        const multiOverlay = document.getElementById('multi-overlay');
+        const multiSetupPanel = document.getElementById('multi-setup-panel');
+        const multiLobbyPanel = document.getElementById('multi-lobby-panel');
+        const lobbyCodeVal = document.getElementById('lobby-code-val');
+        const lobbyP1Status = document.getElementById('lobby-p1-status');
+        const lobbyP2Status = document.getElementById('lobby-p2-status');
+        const shareLinkInput = document.getElementById('share-link-input');
+        const startMultiBtn = document.getElementById('start-multi-btn');
+        const multiScoreboard = document.getElementById('multi-scoreboard');
+        const singleScoreboard = document.getElementById('single-scoreboard');
+        const p1ScoreDisplay = document.getElementById('p1-score-display');
+        const p2ScoreDisplay = document.getElementById('p2-score-display');
+        const roomIdDisplay = document.getElementById('room-id-display');
+        const quickChatPanel = document.getElementById('quick-chat-panel');
+        const multiWinnerTitle = document.getElementById('multi-winner-title');
+        const multiOverReason = document.getElementById('multi-over-reason');
+        const p1FinalScore = document.getElementById('p1-final-score');
+        const p2FinalScore = document.getElementById('p2-final-score');
+        const singleOverPanel = document.getElementById('single-over-panel');
+        const multiOverPanel = document.getElementById('multi-over-panel');
+
+        // 音效系統 (Web Audio API)
+        let audioCtx = null;
+        let isMuted = false;
+
+        function playSound(type) {
+            if (isMuted) return;
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'eat') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+                    osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.1); // A5
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.15);
+                } else if (type === 'special') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                    osc.frequency.setValueAtTime(900, audioCtx.currentTime + 0.08);
+                    osc.frequency.setValueAtTime(1200, audioCtx.currentTime + 0.16);
+                    gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.25);
+                } else if (type === 'die') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(60, audioCtx.currentTime + 0.4);
+                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.45);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.45);
+                } else if (type === 'pause') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.1);
+                }
+            } catch (e) {
+                console.log("Audio play blocked: ", e);
+            }
+        }
+
+        function toggleMute() {
+            isMuted = !isMuted;
+            muteIcon.textContent = isMuted ? "🔇" : "🔊";
+        }
+
+        // 核心格線設定
+        const GRID_SIZE = 20; 
+        const TILE_COUNT = canvas.width / GRID_SIZE; // 20x20
+
+        // 單人遊戲狀態
+        let snake = [];
+        let food = { x: 0, y: 0, type: 'NORMAL' };
+        let obstacles = [];
+        let dx = GRID_SIZE;
+        let dy = 0;
+        let nextDirection = { dx: GRID_SIZE, dy: 0 };
+        let score = 0;
+        let highscore = parseInt(localStorage.getItem('ultimate_snake_high')) || 0;
+        highscoreEl.textContent = highscore;
+
+        let gameInterval = null;
+        let isPaused = false;
+        let isGameOver = false;
+        let isGameStarted = false;
+
+        let singleMode = 'WRAP'; // WRAP, WALL, SURVIVAL
+        let initialSpeed = 90; 
+        let currentSpeed = 90;
+
+        // 多人對戰狀態
+        let isMultiplayerMode = false;
+        let lobbyId = null;
+        // (lobbyUnsubscribe 已由 PeerJS 取代，不再需要)
+        let playerRole = null; // 'p1' (Host) or 'p2' (Client)
+        let multiGameInterval = null;
+        let p1Direction = { dx: GRID_SIZE, dy: 0 };
+        let p2Direction = { dx: -GRID_SIZE, dy: 0 };
+        let currentMultiLobbyData = null;
+
+        // 主頁籤切換 (單人遊玩 vs 遠端對戰)
+        function switchMainTab(tab) {
+            cleanupAllGames();
+
+            const singleBtn = document.getElementById('tab-single-btn');
+            const multiBtn = document.getElementById('tab-multi-btn');
+
+            if (tab === 'single') {
+                isMultiplayerMode = false;
+                singleBtn.className = "px-2 py-1 rounded bg-[var(--charcoal)] text-[var(--primary-invert)]";
+                multiBtn.className = "px-2 py-1 rounded text-[var(--charcoal)]";
+                
+                // 顯示單人 UI
+                singleScoreboard.classList.remove('hidden');
+                multiScoreboard.classList.add('hidden');
+                startOverlay.classList.remove('hidden');
+                multiOverlay.classList.add('hidden');
+                quickChatPanel.classList.add('hidden');
+                gameoverOverlay.classList.add('hidden');
+                initShow();
+            } else {
+                isMultiplayerMode = true;
+                multiBtn.className = "px-2 py-1 rounded bg-[var(--charcoal)] text-[var(--primary-invert)]";
+                singleBtn.className = "px-2 py-1 rounded text-[var(--charcoal)]";
+
+                // 顯示多人 UI
+                singleScoreboard.classList.add('hidden');
+                multiScoreboard.classList.remove('hidden');
+                startOverlay.classList.add('hidden');
+                multiOverlay.classList.remove('hidden');
+                quickChatPanel.classList.remove('hidden');
+                gameoverOverlay.classList.add('hidden');
+
+                if (lobbyId) {
+                    showLobbyPanel();
+                } else {
+                    showSetupPanel();
+                }
+                initShow();
+            }
+        }
+
+        function cleanupAllGames() {
+            if (gameInterval) clearInterval(gameInterval);
+            if (multiGameInterval) clearInterval(multiGameInterval);
+            isGameStarted = false;
+            isGameOver = false;
+            isPaused = false;
+        }
+
+        function setTheme(theme) {
+            document.body.className = "min-h-screen flex flex-col items-center justify-center p-3 sm:p-6 overflow-x-hidden";
+            if (theme === 'dark') {
+                document.body.classList.add('theme-dark');
+            } else if (theme === 'gameboy') {
+                document.body.classList.add('theme-gameboy');
+            }
+            draw();
+        }
+
+        // 單人模式切換
+        function changeSingleMode(mode) {
+            singleMode = mode;
+            document.getElementById('smode-wrap').className = "px-2 py-1 rounded text-[var(--charcoal)]";
+            document.getElementById('smode-wall').className = "px-2 py-1 rounded text-[var(--charcoal)]";
+            document.getElementById('smode-survival').className = "px-2 py-1 rounded text-[var(--charcoal)]";
+
+            if (mode === 'WRAP') {
+                document.getElementById('smode-wrap').className = "px-2 py-1 rounded bg-[var(--charcoal)] text-[var(--primary-invert)]";
+                modeDisplay.textContent = "模式: 穿透無牆";
+                modeDescText.textContent = "【穿透模式】蛇可以自由穿透四壁！小心別撞到自己的身體，努力吃掉各種道具！";
+            } else if (mode === 'WALL') {
+                document.getElementById('smode-wall').className = "px-2 py-1 rounded bg-[var(--charcoal)] text-[var(--primary-invert)]";
+                modeDisplay.textContent = "模式: 傳統鋼鐵牆";
+                modeDescText.textContent = "【鋼鐵牆模式】撞到任何邊界或咬到自己都會立即死亡！考驗你靈敏的反射神經。";
+            } else if (mode === 'SURVIVAL') {
+                document.getElementById('smode-survival').className = "px-2 py-1 rounded bg-[var(--charcoal)] text-[var(--primary-invert)]";
+                modeDisplay.textContent = "模式: 生存障礙";
+                modeDescText.textContent = "【生存迷宮】地圖上會隨機生成靜態障礙物，且蛇吃得越多速度就越快！";
+            }
+        }
+
+        function setSpeed(ms, btnElement) {
+            initialSpeed = ms;
+            document.querySelectorAll('.diff-btn').forEach(btn => {
+                btn.className = "diff-btn text-xs border border-[var(--border-color)] px-2 py-1";
+            });
+            btnElement.className = "diff-btn text-xs border border-[var(--border-color)] px-2 py-1 bg-[var(--charcoal)] text-[var(--primary-invert)]";
+        }
+
+        // 啟動單人遊戲
+        function startGame() {
+            startOverlay.classList.add('hidden');
+            gameoverOverlay.classList.add('hidden');
+
+            score = 0;
+            scoreEl.textContent = score;
+            isPaused = false;
+            isGameOver = false;
+            isGameStarted = true;
+            currentSpeed = initialSpeed;
+
+            const startX = Math.floor(TILE_COUNT / 2) * GRID_SIZE;
+            const startY = Math.floor(TILE_COUNT / 2) * GRID_SIZE;
+            snake = [
+                { x: startX, y: startY },
+                { x: startX - GRID_SIZE, y: startY },
+                { x: startX - (GRID_SIZE * 2), y: startY }
+            ];
+
+            dx = GRID_SIZE;
+            dy = 0;
+            nextDirection = { dx: GRID_SIZE, dy: 0 };
+            obstacles = [];
+
+            if (singleMode === 'SURVIVAL') {
+                generateObstacles();
+            }
+
+            generateFood();
+
+            if (gameInterval) clearInterval(gameInterval);
+            gameInterval = setInterval(gameLoop, currentSpeed);
+        }
+
+        function gameLoop() {
+            if (isPaused || !isGameStarted || isGameOver) return;
+
+            dx = nextDirection.dx;
+            dy = nextDirection.dy;
+
+            moveSnake();
+            checkCollision();
+
+            if (!isGameOver) {
+                draw();
+            }
+        }
+
+        function moveSnake() {
+            let newX = snake[0].x + dx;
+            let newY = snake[0].y + dy;
+
+            if (singleMode === 'WRAP') {
+                if (newX < 0) newX = canvas.width - GRID_SIZE;
+                else if (newX >= canvas.width) newX = 0;
+
+                if (newY < 0) newY = canvas.height - GRID_SIZE;
+                else if (newY >= canvas.height) newY = 0;
+            }
+
+            const head = { x: newX, y: newY };
+            snake.unshift(head);
+
+            if (head.x === food.x && head.y === food.y) {
+                eatFood();
+            } else {
+                snake.pop();
+            }
+        }
+
+        function eatFood() {
+            if (food.type === 'NORMAL') {
+                score += 10;
+                playSound('eat');
+            } else if (food.type === 'GOLD') {
+                score += 30;
+                playSound('special');
+            } else if (food.type === 'SHRINK') {
+                score += 5;
+                playSound('special');
+                if (snake.length > 5) {
+                    snake.pop(); snake.pop();
+                } else if (snake.length > 4) {
+                    snake.pop();
+                }
+            }
+
+            scoreEl.textContent = score;
+
+            if (singleMode === 'SURVIVAL') {
+                currentSpeed = Math.max(35, currentSpeed - 3);
+                clearInterval(gameInterval);
+                gameInterval = setInterval(gameLoop, currentSpeed);
+
+                if (Math.random() < 0.4) {
+                    addSingleObstacle();
+                }
+            }
+
+            generateFood();
+        }
+
+        function checkCollision() {
+            const head = snake[0];
+
+            if (singleMode === 'WALL' || singleMode === 'SURVIVAL') {
+                if (head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height) {
+                    endGame("你撞上了冰冷的邊界鋼鐵牆！");
+                    return;
+                }
+            }
+
+            if (singleMode === 'SURVIVAL') {
+                const hitObstacle = obstacles.some(obs => obs.x === head.x && obs.y === head.y);
+                if (hitObstacle) {
+                    endGame("你不小心一頭撞上了迷宮的岩石！");
+                    return;
+                }
+            }
+
+            for (let i = 1; i < snake.length; i++) {
+                if (head.x === snake[i].x && head.y === snake[i].y) {
+                    endGame("你咬到了自己長長的身體！");
+                    return;
+                }
+            }
+        }
+
+        function endGame(reason) {
+            isGameOver = true;
+            clearInterval(gameInterval);
+            playSound('die');
+
+            if (score > highscore) {
+                highscore = score;
+                localStorage.setItem('ultimate_snake_high', highscore);
+                highscoreEl.textContent = highscore;
+            }
+
+            finalScoreEl.textContent = score;
+            gameoverReasonEl.textContent = reason || "你不小心死掉了！";
+            
+            singleOverPanel.classList.remove('hidden');
+            multiOverPanel.classList.add('hidden');
+            gameoverOverlay.classList.remove('hidden');
+        }
+
+        function generateFood() {
+            const rand = Math.random();
+            let foodType = 'NORMAL';
+            if (rand < 0.15) {
+                foodType = 'GOLD';
+            } else if (rand < 0.25) {
+                foodType = 'SHRINK';
+            }
+
+            while (true) {
+                const foodX = Math.floor(Math.random() * TILE_COUNT) * GRID_SIZE;
+                const foodY = Math.floor(Math.random() * TILE_COUNT) * GRID_SIZE;
+
+                const onSnake = snake.some(seg => seg.x === foodX && seg.y === foodY);
+                const onObstacle = obstacles.some(obs => obs.x === foodX && obs.y === foodY);
+
+                if (!onSnake && !onObstacle) {
+                    food = { x: foodX, y: foodY, type: foodType };
+                    break;
+                }
+            }
+        }
+
+        function generateObstacles() {
+            obstacles = [];
+            for (let i = 0; i < 3; i++) {
+                addSingleObstacle();
+            }
+        }
+
+        function addSingleObstacle() {
+            let attempts = 0;
+            while (attempts < 50) {
+                const obsX = Math.floor(Math.random() * TILE_COUNT) * GRID_SIZE;
+                const obsY = Math.floor(Math.random() * TILE_COUNT) * GRID_SIZE;
+
+                const nearSnakeHead = snake.some((seg, idx) => {
+                    if (idx < 4) {
+                        return Math.abs(seg.x - obsX) <= GRID_SIZE * 2 && Math.abs(seg.y - obsY) <= GRID_SIZE * 2;
+                    }
+                    return seg.x === obsX && seg.y === obsY;
+                });
+                
+                const onFood = (food.x === obsX && food.y === obsY);
+                const onExistObs = obstacles.some(obs => obs.x === obsX && obs.y === obsY);
+
+                if (!nearSnakeHead && !onFood && !onExistObs) {
+                    obstacles.push({ x: obsX, y: obsY });
+                    break;
+                }
+                attempts++;
+            }
+        }
+
+
+        // === 多人連線對戰核心邏輯 (PeerJS P2P 版) ===
+
+        function showSetupPanel() {
+            multiSetupPanel.classList.remove('hidden');
+            multiLobbyPanel.classList.add('hidden');
+        }
+
+        function showLobbyPanel() {
+            multiSetupPanel.classList.add('hidden');
+            multiLobbyPanel.classList.remove('hidden');
+        }
+
+        // 檢查網址，確認是否是在帶有 Room ID 情況下開啟
+        function checkUrlRoom() {
+            const params = new URLSearchParams(window.location.search);
+            const rId = params.get('room');
+            if (rId) {
+                switchMainTab('multi');
+                document.getElementById('room-input').value = rId;
+                joinRoom(rId);
+            }
+        }
+
+        // 在頁面載入後檢查 URL Room
+        window.addEventListener('load', () => {
+            checkUrlRoom();
+        });
+
+        // 房主建立房間 (PeerJS: 用 lobbyId 作為 PeerID)
+        function createRoom() {
+            lobbyId = 'SNK' + Math.random().toString(36).substring(2, 6).toUpperCase();
+            playerRole = 'p1';
+
+            showInternalMessage("⏳ 正在建立房間，請稍候...");
+
+            const { initPeer } = window.peerModule;
+            initPeer(lobbyId,
+                (id) => {
+                    // Peer 開啟成功
+                    showLobbyPanel();
+                    lobbyCodeVal.textContent = id;
+
+                    // 設定分享連結
+                    document.getElementById('share-link-section').classList.remove('hidden');
+                    let shareUrl = lobbyId;
+                    try {
+                        const url = new URL(window.location.href);
+                        url.searchParams.set('room', lobbyId);
+                        shareUrl = url.toString();
+                    } catch(e) {}
+                    shareLinkInput.value = shareUrl;
+
+                    lobbyP1Status.textContent = "🟢 已就緒 (你)";
+                    lobbyP2Status.textContent = "⏳ 等待對手加入...";
+                    startMultiBtn.disabled = true;
+                    roomIdDisplay.textContent = `房間號碼: ${lobbyId} (你是 P1)`;
+
+                    showInternalMessage(`✅ 房間 ${lobbyId} 已建立！等待對手加入...`);
+
+                    // 監聽 P2 的連入
+                    const myPeer = window.peerModule.getPeer();
+                    myPeer.on('connection', (newConn) => {
+                        window.peerModule.setConn(newConn);
+                        newConn.on('open', () => {
+                            lobbyP2Status.textContent = "🟢 對手已加入！";
+                            startMultiBtn.disabled = false;
+                            showInternalMessage("🎮 對手已加入房間！可以開始對戰！");
+                            newConn.send({ type: 'joined', payload: { role: 'p2' } });
+                        });
+                        newConn.on('data', onPeerData);
+                        newConn.on('close', () => {
+                            showInternalMessage("⚠️ 對手已斷線。");
+                            lobbyP2Status.textContent = "❌ 對手已斷線";
+                            startMultiBtn.disabled = true;
+                            if (isGameStarted) {
+                                endMultiGame('p1', '對手已斷線，你獲勝！');
+                            }
+                        });
+                    });
+                },
+                (err) => {
+                    if (err.type === 'unavailable-id') {
+                        showInternalMessage("房間代碼已被使用，正在重試...");
+                        setTimeout(createRoom, 500);
+                    } else {
+                        showInternalMessage("建立房間失敗：" + err.message);
+                    }
+                }
+            );
+        }
+
+        // 輸入代碼加入
+        function joinRoomFromInput() {
+            const rId = document.getElementById('room-input').value.trim().toUpperCase();
+            if (rId) {
+                joinRoom(rId);
+            }
+        }
+
+        // 加入房間核心 (PeerJS: 作為 P2 連線到 P1 的 PeerID)
+        function joinRoom(rId) {
+            lobbyId = rId;
+            playerRole = 'p2';
+
+            showInternalMessage("⏳ 正在連線到房間...");
+
+            const { initPeer, sendToPeer } = window.peerModule;
+            // P2 用自動 ID
+            initPeer(undefined,
+                (myId) => {
+                    const myPeer = window.peerModule.getPeer();
+                    const newConn = myPeer.connect(lobbyId, { reliable: true });
+                    window.peerModule.setConn(newConn);
+
+                    newConn.on('open', () => {
+                        showLobbyPanel();
+                        lobbyCodeVal.textContent = lobbyId;
+                        lobbyP2Status.textContent = "🟢 已就緒 (你)";
+                        lobbyP1Status.textContent = "🟢 房主已就緒";
+                        startMultiBtn.textContent = "等待房主開始...";
+                        startMultiBtn.disabled = true;
+                        roomIdDisplay.textContent = `房間號碼: ${lobbyId} (你是 P2)`;
+                        document.getElementById('share-link-section').classList.add('hidden');
+                        showInternalMessage("✅ 成功加入房間！等待房主開始遊戲...");
+                    });
+
+                    newConn.on('data', onPeerData);
+
+                    newConn.on('close', () => {
+                        showInternalMessage("⚠️ 與房主的連線已中斷。");
+                        if (isGameStarted) {
+                            endMultiGame('p2', '房主已斷線，你獲勝！');
+                        }
+                    });
+
+                    newConn.on('error', (err) => {
+                        showInternalMessage("連線錯誤：" + err.message);
+                    });
+
+                    // 5秒連線逾時
+                    setTimeout(() => {
+                        if (!newConn.open) {
+                            showInternalMessage("連線逾時，請確認房間代碼是否正確。");
+                            leaveRoom();
+                        }
+                    }, 5000);
+                },
+                (err) => {
+                    showInternalMessage("連線失敗：" + err.message);
+                }
+            );
+        }
+
+        // 接收 Peer 訊息的總處理器
+        function onPeerData(msg) {
+            if (!msg || !msg.type) return;
+
+            switch (msg.type) {
+                case 'joined':
+                    // P2 已收到加入確認 (目前在 open 事件已處理，預留)
+                    break;
+
+                case 'start':
+                    // P1 通知開始遊戲，帶初始遊戲狀態
+                    if (playerRole === 'p2') {
+                        currentMultiLobbyData = msg.payload;
+                        startMultiplayerLoop();
+                    }
+                    break;
+
+                case 'tick':
+                    // P1 (host) 每 tick 廣播遊戲狀態給 P2
+                    if (playerRole === 'p2') {
+                        currentMultiLobbyData = msg.payload;
+                        if (msg.payload.status === 'gameover') {
+                            handleMultiplayerGameOver(msg.payload);
+                        } else {
+                            drawMultiplayer(msg.payload);
+                            p1ScoreDisplay.textContent = msg.payload.p1.score;
+                            p2ScoreDisplay.textContent = msg.payload.p2.score;
+                        }
+                    }
+                    break;
+
+                case 'dir':
+                    // P2 傳送方向給 P1 (host)
+                    if (playerRole === 'p1') {
+                        const d = msg.payload;
+                        // 防止反向
+                        if (d.dx !== 0 && p2Direction.dx !== 0) break;
+                        if (d.dy !== 0 && p2Direction.dy !== 0) break;
+                        p2Direction = d;
+                    }
+                    break;
+
+                case 'chat':
+                    handleChatMessage(msg.payload);
+                    break;
+
+                case 'lobby_back':
+                    // P1 通知返回大廳
+                    if (playerRole === 'p2') {
+                        isGameStarted = false;
+                        gameoverOverlay.classList.add('hidden');
+                        showLobbyPanel();
+                    }
+                    break;
+
+                case 'rematch':
+                    // 對方請求再次對戰
+                    showInternalMessage("對手要求再戰！房主即可點擊開始！");
+                    break;
+            }
+        }
+
+        // 離開房間
+        function leaveRoom() {
+            const c = window.peerModule.getConn();
+            if (c) { try { c.close(); } catch(e){} }
+            const p = window.peerModule.getPeer();
+            if (p) { try { p.destroy(); } catch(e){} }
+            window.peerModule.setConn(null);
+
+            lobbyId = null;
+            playerRole = null;
+
+            try {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('room');
+                window.history.replaceState(null, '', url.toString());
+            } catch (e) {}
+
+            showSetupPanel();
+        }
+
+        // 離線降級模擬 (本地雙人)
+        function fallbackOfflineLobby() {
+            showInternalMessage("已啟動【單機雙人模式】(P1: WASD / P2: 方向鍵)！");
+            isMultiplayerMode = true;
+            lobbyId = "LOCAL";
+            playerRole = "p1";
+
+            lobbyCodeVal.textContent = "本地模擬";
+            lobbyP1Status.textContent = "已連線 (本地 P1)";
+            lobbyP2Status.textContent = "已連線 (本地 P2)";
+            startMultiBtn.disabled = false;
+            document.getElementById('share-link-section').classList.add('hidden');
+            showLobbyPanel();
+        }
+
+        function copyShareLink() {
+            const copyText = document.getElementById("share-link-input");
+            const dummy = document.createElement("textarea");
+            document.body.appendChild(dummy);
+            dummy.value = copyText.value;
+            dummy.select();
+            let success = false;
+            try { success = document.execCommand("copy"); } catch (err) {}
+            document.body.removeChild(dummy);
+            if (success) {
+                showInternalMessage("📋 邀請連結已複製！傳給朋友即可對戰！");
+            } else {
+                copyText.focus(); copyText.select();
+                showInternalMessage("📢 請手動按 Ctrl+C 複製連結！");
+            }
+        }
+
+        function startMultiplayerGame() {
+            if (lobbyId === 'LOCAL') {
+                startLocalTwoPlayerGame();
+                return;
+            }
+
+            // 只有 P1 (房主) 可以啟動
+            if (playerRole !== 'p1') return;
+
+            const startX_p1 = 4 * GRID_SIZE, startY_p1 = 10 * GRID_SIZE;
+            const startX_p2 = 15 * GRID_SIZE, startY_p2 = 10 * GRID_SIZE;
+
+            const initialState = {
+                status: 'playing',
+                food: { x: 10 * GRID_SIZE, y: 5 * GRID_SIZE, type: 'NORMAL' },
+                p1: {
+                    score: 0, alive: true,
+                    snake: [
+                        { x: startX_p1, y: startY_p1 },
+                        { x: startX_p1 - GRID_SIZE, y: startY_p1 },
+                        { x: startX_p1 - GRID_SIZE * 2, y: startY_p1 }
+                    ]
+                },
+                p2: {
+                    score: 0, alive: true,
+                    snake: [
+                        { x: startX_p2, y: startY_p2 },
+                        { x: startX_p2 + GRID_SIZE, y: startY_p2 },
+                        { x: startX_p2 + GRID_SIZE * 2, y: startY_p2 }
+                    ]
+                },
+                winner: ''
+            };
+
+            currentMultiLobbyData = JSON.parse(JSON.stringify(initialState));
+            p1Direction = { dx: GRID_SIZE, dy: 0 };
+            p2Direction = { dx: -GRID_SIZE, dy: 0 };
+
+            // 通知 P2 開始，並帶上初始狀態
+            window.peerModule.sendToPeer({ type: 'start', payload: initialState });
+
+            startMultiplayerLoop();
+        }
+
+        // 啟動或同步對戰 Loop
+        function startMultiplayerLoop() {
+            multiOverlay.classList.add('hidden');
+            gameoverOverlay.classList.add('hidden');
+            isGameStarted = true;
+            isGameOver = false;
+
+            if (multiGameInterval) clearInterval(multiGameInterval);
+
+            if (playerRole === 'p1') {
+                // P1 是 host，負責所有遊戲邏輯計算並廣播給 P2
+                multiGameInterval = setInterval(hostMultiplayerTick, 150);
+            } else {
+                // P2 只負責渲染，資料由 P1 的 tick 訊息驅動 (在 onPeerData 裡處理)
+                // 這裡只做一個保底的畫面更新以防萬一
+                multiGameInterval = setInterval(() => {
+                    if (currentMultiLobbyData && currentMultiLobbyData.status === 'playing') {
+                        drawMultiplayer(currentMultiLobbyData);
+                    }
+                }, 50);
+            }
+        }
+
+        // 房主專屬 Tick (做所有移動、碰撞計算，再廣播給 P2)
+        function hostMultiplayerTick() {
+            if (!currentMultiLobbyData || currentMultiLobbyData.status !== 'playing') return;
+
+            let data = JSON.parse(JSON.stringify(currentMultiLobbyData));
+
+            let p1Head = {
+                x: data.p1.snake[0].x + p1Direction.dx,
+                y: data.p1.snake[0].y + p1Direction.dy
+            };
+            let p2Head = {
+                x: data.p2.snake[0].x + p2Direction.dx,
+                y: data.p2.snake[0].y + p2Direction.dy
+            };
+
+            const checkWallCollision = (head) =>
+                (head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height);
+
+            let p1Dead = checkWallCollision(p1Head);
+            let p2Dead = checkWallCollision(p2Head);
+
+            const checkBodyCollision = (head, body) =>
+                body.some(seg => seg.x === head.x && seg.y === head.y);
+
+            if (!p1Dead) p1Dead = checkBodyCollision(p1Head, data.p1.snake) || checkBodyCollision(p1Head, data.p2.snake);
+            if (!p2Dead) p2Dead = checkBodyCollision(p2Head, data.p2.snake) || checkBodyCollision(p2Head, data.p1.snake);
+
+            if (p1Head.x === p2Head.x && p1Head.y === p2Head.y) { p1Dead = true; p2Dead = true; }
+
+            if (!p1Dead) data.p1.snake.unshift(p1Head);
+            if (!p2Dead) data.p2.snake.unshift(p2Head);
+
+            let foodEaten = false;
+            if (!p1Dead && p1Head.x === data.food.x && p1Head.y === data.food.y) {
+                data.p1.score += data.food.type === 'GOLD' ? 30 : 10;
+                foodEaten = true;
+                playSound('eat');
+            } else if (!p1Dead) {
+                data.p1.snake.pop();
+            }
+
+            if (!p2Dead && p2Head.x === data.food.x && p2Head.y === data.food.y) {
+                data.p2.score += data.food.type === 'GOLD' ? 30 : 10;
+                foodEaten = true;
+                playSound('eat');
+            } else if (!p2Dead) {
+                data.p2.snake.pop();
+            }
+
+            if (foodEaten) {
+                data.food = hostGenerateFood(data.p1.snake, data.p2.snake);
+            }
+
+            if (p1Dead || p2Dead) {
+                data.status = 'gameover';
+                if (p1Dead && p2Dead) data.winner = 'draw';
+                else if (p1Dead) data.winner = 'p2';
+                else data.winner = 'p1';
+            }
+
+            currentMultiLobbyData = data;
+
+            // 廣播最新狀態給 P2
+            window.peerModule.sendToPeer({ type: 'tick', payload: data });
+
+            // P1 自己渲染
+            if (data.status === 'gameover') {
+                handleMultiplayerGameOver(data);
+            } else {
+                drawMultiplayer(data);
+                p1ScoreDisplay.textContent = data.p1.score;
+                p2ScoreDisplay.textContent = data.p2.score;
+            }
+        }
+
+        function hostGenerateFood(p1Snake, p2Snake) {
+            const rand = Math.random();
+            let foodType = rand < 0.2 ? 'GOLD' : 'NORMAL';
+
+            while (true) {
+                const foodX = Math.floor(Math.random() * TILE_COUNT) * GRID_SIZE;
+                const foodY = Math.floor(Math.random() * TILE_COUNT) * GRID_SIZE;
+
+                const onP1 = p1Snake.some(seg => seg.x === foodX && seg.y === foodY);
+                const onP2 = p2Snake.some(seg => seg.x === foodX && seg.y === foodY);
+
+                if (!onP1 && !onP2) {
+                    return { x: foodX, y: foodY, type: foodType };
+                }
+            }
+        }
+
+
+        // === 本地雙人模擬 ===
+        let localP1Snake = [], localP2Snake = [];
+        let localFood = { x: 0, y: 0, type: 'NORMAL' };
+        let localP1Dir = { dx: GRID_SIZE, dy: 0 };
+        let localP2Dir = { dx: -GRID_SIZE, dy: 0 };
+        let localP1Score = 0, localP2Score = 0;
+
+        function startLocalTwoPlayerGame() {
+            multiOverlay.classList.add('hidden');
+            gameoverOverlay.classList.add('hidden');
+            isGameStarted = true;
+            isGameOver = false;
+
+            localP1Score = 0;
+            localP2Score = 0;
+            localP1Dir = { dx: GRID_SIZE, dy: 0 };
+            localP2Dir = { dx: -GRID_SIZE, dy: 0 };
+
+            const sY = 10 * GRID_SIZE;
+            localP1Snake = [
+                { x: 4 * GRID_SIZE, y: sY },
+                { x: 3 * GRID_SIZE, y: sY },
+                { x: 2 * GRID_SIZE, y: sY }
+            ];
+            localP2Snake = [
+                { x: 15 * GRID_SIZE, y: sY },
+                { x: 16 * GRID_SIZE, y: sY },
+                { x: 17 * GRID_SIZE, y: sY }
+            ];
+
+            localFood = { x: 10 * GRID_SIZE, y: 5 * GRID_SIZE, type: 'NORMAL' };
+
+            if (multiGameInterval) clearInterval(multiGameInterval);
+            multiGameInterval = setInterval(localMultiplayerTick, 150);
+        }
+
+        function localMultiplayerTick() {
+            if (isPaused || isGameOver) return;
+
+            let p1Head = { x: localP1Snake[0].x + localP1Dir.dx, y: localP1Snake[0].y + localP1Dir.dy };
+            let p2Head = { x: localP2Snake[0].x + localP2Dir.dx, y: localP2Snake[0].y + localP2Dir.dy };
+
+            const checkWall = (h) => (h.x < 0 || h.x >= canvas.width || h.y < 0 || h.y >= canvas.height);
+            const checkBody = (h, s) => s.some(seg => seg.x === h.x && seg.y === h.y);
+
+            let p1Dead = checkWall(p1Head) || checkBody(p1Head, localP1Snake) || checkBody(p1Head, localP2Snake);
+            let p2Dead = checkWall(p2Head) || checkBody(p2Head, localP2Snake) || checkBody(p2Head, localP1Snake);
+
+            if (p1Head.x === p2Head.x && p1Head.y === p2Head.y) {
+                p1Dead = true; p2Dead = true;
+            }
+
+            if (p1Dead || p2Dead) {
+                isGameOver = true;
+                clearInterval(multiGameInterval);
+                playSound('die');
+
+                let winnerMsg = "平手！雙方相撞！";
+                let reason = "雙方同時發生碰撞！";
+                if (p1Dead && !p2Dead) {
+                    winnerMsg = "橘蛇 (P2) 獲勝！";
+                    reason = "藍蛇 (P1) 發生碰撞死亡！";
+                } else if (p2Dead && !p1Dead) {
+                    winnerMsg = "藍蛇 (P1) 獲勝！";
+                    reason = "橘蛇 (P2) 發生碰撞死亡！";
+                }
+
+                multiWinnerTitle.textContent = winnerMsg;
+                multiOverReason.textContent = reason;
+                p1FinalScore.textContent = localP1Score;
+                p2FinalScore.textContent = localP2Score;
+
+                singleOverPanel.classList.add('hidden');
+                multiOverPanel.classList.remove('hidden');
+                gameoverOverlay.classList.remove('hidden');
+                return;
+            }
+
+            localP1Snake.unshift(p1Head);
+            localP2Snake.unshift(p2Head);
+
+            if (p1Head.x === localFood.x && p1Head.y === localFood.y) {
+                localP1Score += 10;
+                playSound('eat');
+                localFood = hostGenerateFood(localP1Snake, localP2Snake);
+            } else {
+                localP1Snake.pop();
+            }
+
+            if (p2Head.x === localFood.x && p2Head.y === localFood.y) {
+                localP2Score += 10;
+                playSound('eat');
+                if (p1Head.x !== localFood.x || p1Head.y !== localFood.y) {
+                    localFood = hostGenerateFood(localP1Snake, localP2Snake);
+                }
+            } else {
+                localP2Snake.pop();
+            }
+
+            p1ScoreDisplay.textContent = localP1Score;
+            p2ScoreDisplay.textContent = localP2Score;
+
+            const mockData = {
+                food: localFood,
+                p1: { snake: localP1Snake, alive: true },
+                p2: { snake: localP2Snake, alive: true }
+            };
+            drawMultiplayer(mockData);
+        }
+
+        // 多人遊戲結束處理
+        function handleMultiplayerGameOver(data) {
+            isGameOver = true;
+            clearInterval(multiGameInterval);
+            playSound('die');
+
+            let winnerText = "雙方平手！";
+            let reasonText = "兩條蛇在同一個瞬間發生了碰撞！";
+
+            if (data.winner === 'p1') {
+                winnerText = "🔵 藍蛇 (房主) 獲勝！";
+                reasonText = "橘蛇不小心發生碰撞死亡！";
+            } else if (data.winner === 'p2') {
+                winnerText = "🟠 橘蛇 (訪客) 獲勝！";
+                reasonText = "藍蛇不小心發生碰撞死亡！";
+            }
+
+            multiWinnerTitle.textContent = winnerText;
+            multiOverReason.textContent = reasonText;
+            p1FinalScore.textContent = data.p1.score;
+            p2FinalScore.textContent = data.p2.score;
+
+            singleOverPanel.classList.add('hidden');
+            multiOverPanel.classList.remove('hidden');
+            gameoverOverlay.classList.remove('hidden');
+        }
+
+        // 強制結束多人遊戲 (斷線用)
+        function endMultiGame(winner, reason) {
+            if (isGameOver) return;
+            isGameOver = true;
+            if (multiGameInterval) clearInterval(multiGameInterval);
+            playSound('die');
+            const fakeData = {
+                winner,
+                p1: { score: currentMultiLobbyData ? currentMultiLobbyData.p1.score : 0 },
+                p2: { score: currentMultiLobbyData ? currentMultiLobbyData.p2.score : 0 }
+            };
+            handleMultiplayerGameOver(fakeData);
+        }
+
+        // 返回對戰大廳
+        function returnToLobby() {
+            gameoverOverlay.classList.add('hidden');
+            isGameStarted = false;
+            isGameOver = false;
+            if (multiGameInterval) clearInterval(multiGameInterval);
+
+            if (lobbyId === 'LOCAL') {
+                showLobbyPanel();
+                return;
+            }
+
+            if (playerRole === 'p1') {
+                // 通知 P2 返回大廳
+                window.peerModule.sendToPeer({ type: 'lobby_back' });
+                showLobbyPanel();
+            } else {
+                // P2 返回，等待 P1 通知（已在 onPeerData 中處理）
+                showLobbyPanel();
+            }
+        }
+
+        // 再次挑戰
+        function requestRematch() {
+            if (lobbyId === 'LOCAL') {
+                startLocalTwoPlayerGame();
+                return;
+            }
+            window.peerModule.sendToPeer({ type: 'rematch' });
+            if (playerRole === 'p1') {
+                // 房主直接準備，等 P2 確認
+                showInternalMessage("已發送再戰邀請！");
+                returnToLobby();
+            } else {
+                showInternalMessage("已發送再戰邀請！等待房主開始...");
+                returnToLobby();
+            }
+        }
+
+        // 送出即時喊話
+        function sendQuickChat(msgText) {
+            const chatPayload = { sender: playerRole, text: msgText, time: Date.now() };
+            handleChatMessage(chatPayload);  // 自己也顯示
+
+            if (lobbyId === 'LOCAL') return;
+            window.peerModule.sendToPeer({ type: 'chat', payload: chatPayload });
+        }
+
+        // 處理接收到的喊話泡泡
+        let chatTimerP1 = null, chatTimerP2 = null;
+        function handleChatMessage(chat) {
+            if (!chat || !chat.text || Date.now() - chat.time > 4000) return;
+
+            const targetBubble = chat.sender === 'p1' ? document.getElementById('chat-bubble-p1') : document.getElementById('chat-bubble-p2');
+            
+            targetBubble.textContent = chat.text;
+            targetBubble.classList.remove('hidden');
+
+            playSound('pause');
+
+            if (chat.sender === 'p1') {
+                if (chatTimerP1) clearTimeout(chatTimerP1);
+                chatTimerP1 = setTimeout(() => targetBubble.classList.add('hidden'), 3000);
+            } else {
+                if (chatTimerP2) clearTimeout(chatTimerP2);
+                chatTimerP2 = setTimeout(() => targetBubble.classList.add('hidden'), 3000);
+            }
+        }
+
+        // 繪製多人對戰 Canvas
+        function drawMultiplayer(data) {
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid-bg').trim();
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 繪製格線
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid-line').trim();
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= canvas.width; i += GRID_SIZE) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
+            }
+
+            // 畫果子
+            const f = data.food;
+            if (f) {
+                ctx.lineWidth = 2;
+                if (f.type === 'GOLD') {
+                    ctx.fillStyle = '#F59E0B';
+                    ctx.strokeStyle = '#D97706';
+                    ctx.beginPath();
+                    ctx.arc(f.x + GRID_SIZE/2, f.y + GRID_SIZE/2, GRID_SIZE/2 - 2, 0, Math.PI * 2);
+                    ctx.fill(); ctx.stroke();
+                } else {
+                    ctx.fillStyle = '#2D2D2D';
+                    ctx.strokeStyle = '#2D2D2D';
+                    ctx.strokeRect(f.x + 4, f.y + 4, GRID_SIZE - 8, GRID_SIZE - 8);
+                    ctx.fillRect(f.x + 7, f.y + 7, GRID_SIZE - 14, GRID_SIZE - 14);
+                }
+            }
+
+            // 畫 P1 (藍蛇)
+            if (data.p1 && data.p1.snake) {
+                data.p1.snake.forEach((seg, index) => {
+                    ctx.fillStyle = index === 0 ? '#1D4ED8' : '#3B82F6'; 
+                    ctx.strokeStyle = '#F6F5F2';
+                    ctx.lineWidth = 2;
+                    ctx.fillRect(seg.x + 1, seg.y + 1, GRID_SIZE - 2, GRID_SIZE - 2);
+                    ctx.strokeRect(seg.x + 1, seg.y + 1, GRID_SIZE - 2, GRID_SIZE - 2);
+                });
+            }
+
+            // 畫 P2 (橘蛇)
+            if (data.p2 && data.p2.snake) {
+                data.p2.snake.forEach((seg, index) => {
+                    ctx.fillStyle = index === 0 ? '#C2410C' : '#F97316'; 
+                    ctx.strokeStyle = '#F6F5F2';
+                    ctx.lineWidth = 2;
+                    ctx.fillRect(seg.x + 1, seg.y + 1, GRID_SIZE - 2, GRID_SIZE - 2);
+                    ctx.strokeRect(seg.x + 1, seg.y + 1, GRID_SIZE - 2, GRID_SIZE - 2);
+                });
+            }
+        }
+
+
+        // === 共通操控系統 ===
+
+        function changeDirection(newDx, newDy) {
+            if (!isMultiplayerMode) {
+                if (newDx !== 0 && dx !== 0) return;
+                if (newDy !== 0 && dy !== 0) return;
+                nextDirection = { dx: newDx, dy: newDy };
+            } else {
+                if (lobbyId === 'LOCAL') {
+                    return;
+                }
+
+                if (playerRole === 'p1') {
+                    if (newDx !== 0 && p1Direction.dx !== 0) return;
+                    if (newDy !== 0 && p1Direction.dy !== 0) return;
+                    p1Direction = { dx: newDx, dy: newDy };
+                } else if (playerRole === 'p2') {
+                    if (newDx !== 0 && p2Direction.dx !== 0) return;
+                    if (newDy !== 0 && p2Direction.dy !== 0) return;
+                    p2Direction = { dx: newDx, dy: newDy };
+
+                    // 透過 PeerJS 傳送方向給 P1 (host)
+                    window.peerModule.sendToPeer({ type: 'dir', payload: p2Direction });
+                }
+            }
+        }
+
+        // 鍵盤操控綁定
+        window.addEventListener('keydown', (e) => {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', ' '].includes(e.key)) {
+                e.preventDefault(); 
+            }
+
+            if (isMultiplayerMode && lobbyId === 'LOCAL') {
+                // P1: WASD
+                if (e.key === 'w' || e.key === 'W') { if (localP1Dir.dy === 0) localP1Dir = { dx: 0, dy: -GRID_SIZE }; }
+                if (e.key === 's' || e.key === 'S') { if (localP1Dir.dy === 0) localP1Dir = { dx: 0, dy: GRID_SIZE }; }
+                if (e.key === 'a' || e.key === 'A') { if (localP1Dir.dx === 0) localP1Dir = { dx: -GRID_SIZE, dy: 0 }; }
+                if (e.key === 'd' || e.key === 'D') { if (localP1Dir.dx === 0) localP1Dir = { dx: GRID_SIZE, dy: 0 }; }
+
+                // P2: 方向鍵
+                if (e.key === 'ArrowUp') { if (localP2Dir.dy === 0) localP2Dir = { dx: 0, dy: -GRID_SIZE }; }
+                if (e.key === 'ArrowDown') { if (localP2Dir.dy === 0) localP2Dir = { dx: 0, dy: GRID_SIZE }; }
+                if (e.key === 'ArrowLeft') { if (localP2Dir.dx === 0) localP2Dir = { dx: -GRID_SIZE, dy: 0 }; }
+                if (e.key === 'ArrowRight') { if (localP2Dir.dx === 0) localP2Dir = { dx: GRID_SIZE, dy: 0 }; }
+                return;
+            }
+
+            if (!isGameStarted || isGameOver) return;
+
+            switch (e.key) {
+                case 'ArrowUp':
+                case 'w':
+                case 'W':
+                    changeDirection(0, -GRID_SIZE);
+                    break;
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    changeDirection(0, GRID_SIZE);
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    changeDirection(-GRID_SIZE, 0);
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    changeDirection(GRID_SIZE, 0);
+                    break;
+                case ' ':
+                case 'Spacebar':
+                    if (!isMultiplayerMode) togglePause();
+                    break;
+            }
+        });
+
+        // 虛擬 D-PAD 點擊/觸控綁定
+        const registerDpad = (btnId, dxVal, dyVal) => {
+            const btn = document.getElementById(btnId);
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); if (isGameStarted) changeDirection(dxVal, dyVal); });
+            btn.addEventListener('click', () => { if (isGameStarted) changeDirection(dxVal, dyVal); });
+        };
+        registerDpad('btn-up', 0, -GRID_SIZE);
+        registerDpad('btn-down', 0, GRID_SIZE);
+        registerDpad('btn-left', -GRID_SIZE, 0);
+        registerDpad('btn-right', GRID_SIZE, 0);
+
+        function togglePause() {
+            if (isGameOver || !isGameStarted) return;
+            isPaused = !isPaused;
+            playSound('pause');
+            
+            if (isPaused) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--charcoal').trim();
+                ctx.font = "bold 20px 'PingFang TC', sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText("遊戲已暫停", canvas.width / 2, canvas.height / 2);
+            } else {
+                draw();
+            }
+        }
+
+        canvas.addEventListener('click', () => {
+            if (isGameStarted && !isGameOver && !isMultiplayerMode) {
+                togglePause();
+            }
+        });
+
+        function showInternalMessage(msg) {
+            const msgBox = document.createElement('div');
+            msgBox.className = "fixed top-10 left-1/2 transform -translate-x-1/2 bg-[var(--charcoal)] text-[var(--primary-invert)] px-5 py-3 rounded-xl text-xs font-bold shadow-2xl border-2 border-[var(--border-color)] z-50 transition-all duration-300";
+            msgBox.textContent = msg;
+            document.body.appendChild(msgBox);
+            setTimeout(() => {
+                msgBox.style.opacity = '0';
+                setTimeout(() => msgBox.remove(), 300);
+            }, 3000);
+        }
+
+        // 繪製單人基礎網格
+        function draw() {
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid-bg').trim();
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid-line').trim();
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= canvas.width; i += GRID_SIZE) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
+            }
+
+            if (!isGameStarted) return;
+
+            // 畫障礙物 (岩石)
+            ctx.fillStyle = '#6B7280';
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--charcoal').trim();
+            ctx.lineWidth = 2;
+            obstacles.forEach(obs => {
+                ctx.fillRect(obs.x + 2, obs.y + 2, GRID_SIZE - 4, GRID_SIZE - 4);
+                ctx.strokeRect(obs.x + 2, obs.y + 2, GRID_SIZE - 4, GRID_SIZE - 4);
+            });
+
+            // 畫食物
+            const x = food.x;
+            const y = food.y;
+            ctx.lineWidth = 2;
+
+            if (food.type === 'NORMAL') {
+                ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--charcoal').trim();
+                ctx.strokeStyle = ctx.fillStyle;
+                ctx.strokeRect(x + 4, y + 4, GRID_SIZE - 8, GRID_SIZE - 8);
+                ctx.fillRect(x + 7, y + 7, GRID_SIZE - 14, GRID_SIZE - 14);
+            } else if (food.type === 'GOLD') {
+                ctx.fillStyle = '#F59E0B';
+                ctx.strokeStyle = '#D97706';
+                ctx.beginPath();
+                ctx.arc(x + GRID_SIZE / 2, y + GRID_SIZE / 2, GRID_SIZE / 2 - 2, 0, Math.PI * 2);
+                ctx.fill(); ctx.stroke();
+            } else if (food.type === 'SHRINK') {
+                ctx.fillStyle = '#3B82F6';
+                ctx.strokeStyle = '#1D4ED8';
+                ctx.beginPath();
+                ctx.moveTo(x + GRID_SIZE / 2, y + 2);
+                ctx.lineTo(x + GRID_SIZE - 2, y + GRID_SIZE - 2);
+                ctx.lineTo(x + 2, y + GRID_SIZE - 2);
+                ctx.closePath();
+                ctx.fill(); ctx.stroke();
+            }
+
+            // 畫蛇
+            const charcoalColor = getComputedStyle(document.documentElement).getPropertyValue('--charcoal').trim();
+            const invertBg = getComputedStyle(document.documentElement).getPropertyValue('--primary-invert').trim();
+
+            snake.forEach((segment, index) => {
+                const isHead = index === 0;
+                ctx.fillStyle = charcoalColor;
+                ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid-bg').trim();
+                ctx.lineWidth = 2;
+
+                if (isHead) {
+                    ctx.fillRect(segment.x, segment.y, GRID_SIZE, GRID_SIZE);
+                    ctx.strokeRect(segment.x, segment.y, GRID_SIZE, GRID_SIZE);
+
+                    ctx.fillStyle = invertBg;
+                    const eyeSize = 4;
+                    const offset = 4;
+
+                    if (dx > 0) {
+                        ctx.fillRect(segment.x + GRID_SIZE - offset - eyeSize, segment.y + offset, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x + GRID_SIZE - offset - eyeSize, segment.y + GRID_SIZE - offset - eyeSize, eyeSize, eyeSize);
+                    } else if (dx < 0) {
+                        ctx.fillRect(segment.x + offset, segment.y + offset, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x + offset, segment.y + GRID_SIZE - offset - eyeSize, eyeSize, eyeSize);
+                    } else if (dy > 0) {
+                        ctx.fillRect(segment.x + offset, segment.y + GRID_SIZE - offset - eyeSize, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x + GRID_SIZE - offset - eyeSize, segment.y + GRID_SIZE - offset - eyeSize, eyeSize, eyeSize);
+                    } else if (dy < 0) {
+                        ctx.fillRect(segment.x + offset, segment.y + offset, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x + GRID_SIZE - offset - eyeSize, segment.y + offset, eyeSize, eyeSize);
+                    }
+                } else {
+                    const pad = 1;
+                    ctx.fillRect(segment.x + pad, segment.y + pad, GRID_SIZE - (pad * 2), GRID_SIZE - (pad * 2));
+                    ctx.strokeRect(segment.x + pad, segment.y + pad, GRID_SIZE - (pad * 2), GRID_SIZE - (pad * 2));
+                }
+            });
+        }
+
+        function initShow() {
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid-bg').trim();
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid-line').trim();
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= canvas.width; i += GRID_SIZE) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
+            }
+        }
+
+        window.onload = function() {
+            initShow();
+        };
+    </script>
+</body>
+</html>
