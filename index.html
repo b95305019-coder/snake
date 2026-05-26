@@ -250,21 +250,30 @@
                             <span id="lobby-player-count-display" class="text-purple-500">2 人</span>
                         </div>
                         <div class="border-t border-gray-300 pt-2 flex flex-col gap-1 text-[11px] font-semibold" id="lobby-player-list">
-                            <div class="flex justify-between">
+                            <div class="flex justify-between items-center">
                                 <span class="text-blue-500">🔵 P1 藍蛇 (房主):</span>
                                 <span id="lobby-p1-status" class="opacity-60">等待中...</span>
                             </div>
-                            <div class="flex justify-between">
+                            <div class="flex justify-between items-center">
                                 <span class="text-orange-500">🟠 P2 橘蛇:</span>
-                                <span id="lobby-p2-status" class="opacity-60">等待中...</span>
+                                <div class="flex items-center gap-1">
+                                    <span id="lobby-p2-status" class="opacity-60">等待中...</span>
+                                    <button id="bot-btn-p2" onclick="toggleBot('p2')" class="hidden text-[9px] px-1.5 py-0.5 rounded border border-gray-400 bg-white hover:bg-gray-100 font-bold">🤖</button>
+                                </div>
                             </div>
-                            <div class="flex justify-between hidden" id="lobby-p3-row">
+                            <div class="flex justify-between items-center hidden" id="lobby-p3-row">
                                 <span class="text-green-600">🟢 P3 綠蛇:</span>
-                                <span id="lobby-p3-status" class="opacity-60">等待中...</span>
+                                <div class="flex items-center gap-1">
+                                    <span id="lobby-p3-status" class="opacity-60">等待中...</span>
+                                    <button id="bot-btn-p3" onclick="toggleBot('p3')" class="hidden text-[9px] px-1.5 py-0.5 rounded border border-gray-400 bg-white hover:bg-gray-100 font-bold">🤖</button>
+                                </div>
                             </div>
-                            <div class="flex justify-between hidden" id="lobby-p4-row">
+                            <div class="flex justify-between items-center hidden" id="lobby-p4-row">
                                 <span class="text-purple-500">🟣 P4 紫蛇:</span>
-                                <span id="lobby-p4-status" class="opacity-60">等待中...</span>
+                                <div class="flex items-center gap-1">
+                                    <span id="lobby-p4-status" class="opacity-60">等待中...</span>
+                                    <button id="bot-btn-p4" onclick="toggleBot('p4')" class="hidden text-[9px] px-1.5 py-0.5 rounded border border-gray-400 bg-white hover:bg-gray-100 font-bold">🤖</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -549,6 +558,8 @@
             p4: { dx: 0, dy: -GRID_SIZE }
         };
         let currentMultiLobbyData = null;
+        // Bot 設定：記錄哪些 slot 由電腦控制 (僅 P1 host 端有效)
+        let botSlots = { p2: false, p3: false, p4: false };
 
         // 蛇的顏色設定
         const SNAKE_COLORS = {
@@ -569,6 +580,134 @@
                     btn.className = "flex-1 text-xs py-1 rounded border-2 border-[var(--border-color)] font-bold";
                 }
             });
+        }
+
+        // 切換某 slot 的 Bot 狀態（只有 P1 host 在大廳時可操作）
+        function toggleBot(role) {
+            // 如果該 slot 已有真人加入，不允許切換
+            const statusEl = document.getElementById(`lobby-${role}-status`);
+            if (statusEl && statusEl.textContent.includes('🟢') && !botSlots[role]) return;
+
+            botSlots[role] = !botSlots[role];
+            const btn = document.getElementById(`bot-btn-${role}`);
+            if (botSlots[role]) {
+                statusEl.textContent = '🤖 電腦';
+                statusEl.classList.remove('opacity-60');
+                if (btn) { btn.textContent = '❌'; btn.title = '移除電腦'; }
+            } else {
+                statusEl.textContent = '⏳ 等待中...';
+                statusEl.classList.add('opacity-60');
+                if (btn) { btn.textContent = '🤖'; btn.title = '加入電腦'; }
+            }
+            // 重新判斷是否可以開始
+            checkStartReady();
+        }
+
+        // 判斷人數是否足夠（真人 + Bot）以啟用開始按鈕
+        function checkStartReady() {
+            if (playerRole !== 'p1') return;
+            const guestConns = window.peerModule.getGuestConns();
+            let filled = 1; // P1 自己
+            ['p2','p3','p4'].slice(0, maxPlayers - 1).forEach(r => {
+                if ((guestConns[r] && guestConns[r].open) || botSlots[r]) filled++;
+            });
+            startMultiBtn.disabled = filled < maxPlayers;
+        }
+
+        // ===== Bot AI (BFS 尋路) =====
+        // 在 hostMultiplayerTick 中，每個 Bot slot 都由此函數決定下一步方向
+
+        function computeBotDirection(role, data) {
+            const snake = data[role].snake;
+            const head = snake[0];
+            const food = data.food;
+            const COLS = canvas.width / GRID_SIZE;
+            const ROWS = canvas.height / GRID_SIZE;
+
+            // 建立障礙物集合（所有蛇身，不含自己蛇頭）
+            const blocked = new Set();
+            ['p1','p2','p3','p4'].forEach(r => {
+                if (!data[r] || !data[r].snake) return;
+                data[r].snake.forEach((seg, idx) => {
+                    // 自己蛇尾這格下一 tick 會移走，略過（讓 Bot 更靈活）
+                    if (r === role && idx === data[r].snake.length - 1) return;
+                    blocked.add(`${seg.x},${seg.y}`);
+                });
+            });
+
+            // BFS 找從 head 到 food 的最短路徑
+            const toKey = (x, y) => `${x},${y}`;
+            const wrap = (v, max) => ((v % max) + max) % max;
+            const DIRS = [
+                { dx: GRID_SIZE, dy: 0 },
+                { dx: -GRID_SIZE, dy: 0 },
+                { dx: 0, dy: GRID_SIZE },
+                { dx: 0, dy: -GRID_SIZE }
+            ];
+
+            const queue = [{ x: head.x, y: head.y, path: [] }];
+            const visited = new Set([toKey(head.x, head.y)]);
+            let bestDir = null;
+
+            bfsLoop:
+            while (queue.length > 0) {
+                const cur = queue.shift();
+                for (const d of DIRS) {
+                    const nx = wrap(cur.x + d.dx, canvas.width);
+                    const ny = wrap(cur.y + d.dy, canvas.height);
+                    const key = toKey(nx, ny);
+                    if (blocked.has(key) || visited.has(key)) continue;
+                    const newPath = [...cur.path, d];
+                    if (nx === food.x && ny === food.y) {
+                        bestDir = newPath[0];
+                        break bfsLoop;
+                    }
+                    visited.add(key);
+                    queue.push({ x: nx, y: ny, path: newPath });
+                }
+            }
+
+            if (bestDir) return bestDir;
+
+            // BFS 找不到路：選一個不會立刻撞死的方向（Flood Fill 選最大空間）
+            const cur = playerDirections[role];
+            let bestSafe = null, bestSpace = -1;
+            for (const d of DIRS) {
+                // 禁止180度反向
+                if (d.dx === -cur.dx && d.dy === -cur.dy) continue;
+                const nx = wrap(head.x + d.dx, canvas.width);
+                const ny = wrap(head.y + d.dy, canvas.height);
+                if (blocked.has(toKey(nx, ny))) continue;
+                // 簡易 flood fill 計算可到達格子數
+                const space = floodFillCount(nx, ny, blocked, COLS * ROWS);
+                if (space > bestSpace) { bestSpace = space; bestSafe = d; }
+            }
+            return bestSafe || cur; // 實在無路可走就維持原方向
+        }
+
+        function floodFillCount(startX, startY, blocked, maxCells) {
+            const wrap = (v, max) => ((v % max) + max) % max;
+            const visited = new Set();
+            const queue = [{ x: startX, y: startY }];
+            visited.add(`${startX},${startY}`);
+            let count = 0;
+            while (queue.length > 0 && count < maxCells) {
+                const { x, y } = queue.shift();
+                count++;
+                for (const d of [
+                    { dx: GRID_SIZE, dy: 0 }, { dx: -GRID_SIZE, dy: 0 },
+                    { dx: 0, dy: GRID_SIZE }, { dx: 0, dy: -GRID_SIZE }
+                ]) {
+                    const nx = wrap(x + d.dx, canvas.width);
+                    const ny = wrap(y + d.dy, canvas.height);
+                    const key = `${nx},${ny}`;
+                    if (!blocked.has(key) && !visited.has(key)) {
+                        visited.add(key);
+                        queue.push({ x: nx, y: ny });
+                    }
+                }
+            }
+            return count;
         }
 
         // 主頁籤切換 (單人遊玩 vs 遠端對戰)
@@ -878,23 +1017,29 @@
 
         // 更新大廳玩家列表顯示
         function updateLobbyUI(joinedRoles) {
-            const allRoles = ['p1', 'p2', 'p3', 'p4'];
-            const roleNames = { p1: '房主', p2: '訪客', p3: '訪客', p4: '訪客' };
-
-            // 顯示/隱藏 P3/P4 列
             document.getElementById('lobby-p3-row').classList.toggle('hidden', maxPlayers < 3);
             document.getElementById('lobby-p4-row').classList.toggle('hidden', maxPlayers < 4);
             document.getElementById('lobby-player-count-display').textContent = `${maxPlayers} 人`;
 
-            allRoles.slice(0, maxPlayers).forEach(role => {
+            ['p2','p3','p4'].slice(0, maxPlayers - 1).forEach(role => {
                 const el = document.getElementById(`lobby-${role}-status`);
-                if (el) el.textContent = joinedRoles.includes(role) ? '🟢 已加入' : '⏳ 等待中...';
+                const botBtn = document.getElementById(`bot-btn-${role}`);
+
+                if (joinedRoles.includes(role)) {
+                    if (el) { el.textContent = '🟢 已加入'; el.classList.remove('opacity-60'); }
+                    // 真人加入後隱藏 Bot 按鈕，並清除 bot 狀態
+                    if (botSlots[role]) { botSlots[role] = false; }
+                    if (botBtn) botBtn.classList.add('hidden');
+                } else if (botSlots[role]) {
+                    if (el) { el.textContent = '🤖 電腦'; el.classList.remove('opacity-60'); }
+                    if (botBtn && playerRole === 'p1') { botBtn.classList.remove('hidden'); botBtn.textContent = '❌'; }
+                } else {
+                    if (el) { el.textContent = '⏳ 等待中...'; el.classList.add('opacity-60'); }
+                    if (botBtn && playerRole === 'p1') { botBtn.classList.remove('hidden'); botBtn.textContent = '🤖'; }
+                }
             });
 
-            // 房主才能開始，且要等人數到齊
-            if (playerRole === 'p1') {
-                startMultiBtn.disabled = joinedRoles.length < maxPlayers;
-            }
+            checkStartReady();
         }
 
         // 更新計分板 P3/P4 行可見性
@@ -1136,6 +1281,7 @@
             lobbyId = null;
             playerRole = null;
             maxPlayers = 2;
+            botSlots = { p2: false, p3: false, p4: false };
             setPlayerCount(2);
 
             try {
@@ -1182,7 +1328,6 @@
             if (lobbyId === 'LOCAL') { startLocalTwoPlayerGame(); return; }
             if (playerRole !== 'p1') return;
 
-            // 起始位置依玩家數分配
             const startPositions = {
                 p1: { x: 3*GRID_SIZE,  y: 10*GRID_SIZE, dx: GRID_SIZE,  dy: 0 },
                 p2: { x: 16*GRID_SIZE, y: 10*GRID_SIZE, dx: -GRID_SIZE, dy: 0 },
@@ -1195,6 +1340,7 @@
                 const sp = startPositions[role];
                 players[role] = {
                     score: 0, alive: true,
+                    isBot: role !== 'p1' && botSlots[role],
                     snake: [
                         { x: sp.x, y: sp.y },
                         { x: sp.x - sp.dx, y: sp.y - sp.dy },
@@ -1214,6 +1360,7 @@
 
             currentMultiLobbyData = JSON.parse(JSON.stringify(initialState));
             updateScoreboardVisibility();
+            // 只廣播給真人訪客（Bot 不需要）
             window.peerModule.broadcastToGuests({ type: 'start', payload: initialState });
             startMultiplayerLoop();
         }
@@ -1244,6 +1391,14 @@
             const data = JSON.parse(JSON.stringify(currentMultiLobbyData));
             const roles = ['p1','p2','p3','p4'].slice(0, data.maxPlayers);
             const WIN_SCORE = 300;
+
+            // Bot AI：為每個 Bot slot 計算最佳方向
+            roles.forEach(role => {
+                if (data[role] && data[role].alive && data[role].isBot) {
+                    const botDir = computeBotDirection(role, data);
+                    if (botDir) playerDirections[role] = botDir;
+                }
+            });
 
             // 穿牆 wrap
             const wrap = (val, max) => { if (val < 0) return max - GRID_SIZE; if (val >= max) return 0; return val; };
