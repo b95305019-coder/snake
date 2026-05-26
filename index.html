@@ -139,15 +139,17 @@
             </div>
         </div>
 
-        <!-- 2. 多人對戰看板 -->
+        <!-- 2. 多人對戰看板 (動態 2-4 人) -->
         <div id="multi-scoreboard" class="w-full hidden flex-col border-2 border-b-0 border-[var(--border-color)] font-bold text-xs bg-black/5 p-2">
-            <div class="flex justify-between items-center mb-1">
-                <span class="text-blue-500">P1 藍蛇 (房主): <span id="p1-score-display" class="text-sm">0</span></span>
-                <span class="text-orange-500">P2 橘蛇 (訪客): <span id="p2-score-display" class="text-sm">0</span></span>
+            <div id="score-row-1" class="flex justify-between items-center mb-0.5">
+                <span class="text-blue-500">🔵P1: <span id="p1-score-display" class="text-sm">0</span></span>
+                <span class="text-orange-500">🟠P2: <span id="p2-score-display" class="text-sm">0</span></span>
             </div>
-            <div class="text-center text-[10px] text-gray-500" id="room-id-display">
-                房間號碼: --
+            <div id="score-row-2" class="flex justify-between items-center mb-0.5 hidden">
+                <span class="text-green-600">🟢P3: <span id="p3-score-display" class="text-sm">0</span></span>
+                <span class="text-purple-500">🟣P4: <span id="p4-score-display" class="text-sm">0</span></span>
             </div>
+            <div class="text-center text-[10px] text-gray-500" id="room-id-display">房間號碼: --</div>
         </div>
 
         <div class="relative w-full aspect-square canvas-container overflow-hidden">
@@ -198,10 +200,20 @@
 
             <div id="multi-overlay" class="absolute inset-0 bg-[var(--bg-color)]/95 flex flex-col items-center justify-center p-4 text-center z-10 hidden overflow-y-auto">
                 <h2 class="text-2xl font-black mb-1">遠端對戰大廳</h2>
-                <p class="text-[10px] opacity-75 mb-3 max-w-xs font-semibold">房主為藍蛇，訪客為橘蛇。撞牆、自撞或相撞即告戰敗！搶奪果子獲得最高分！</p>
+                <p class="text-[10px] opacity-75 mb-3 max-w-xs font-semibold">穿牆模式，撞到對手蛇身即告戰敗！先取得 300 分者獲勝！</p>
 
                 <!-- 未建立/加入房間畫面 -->
                 <div id="multi-setup-panel" class="w-full max-w-xs flex flex-col gap-2.5">
+                    <!-- 人數選擇 -->
+                    <div class="flex flex-col gap-1 bg-black/5 border border-[var(--border-color)] p-2 rounded-lg">
+                        <span class="text-[10px] font-bold text-left">選擇對戰人數（建立房間用）：</span>
+                        <div class="flex gap-1" id="player-count-selector">
+                            <button onclick="setPlayerCount(2)" id="pc-btn-2" class="flex-1 text-xs py-1 rounded border-2 border-[var(--border-color)] bg-[var(--charcoal)] text-[var(--primary-invert)] font-bold">2 人</button>
+                            <button onclick="setPlayerCount(3)" id="pc-btn-3" class="flex-1 text-xs py-1 rounded border-2 border-[var(--border-color)] font-bold">3 人</button>
+                            <button onclick="setPlayerCount(4)" id="pc-btn-4" class="flex-1 text-xs py-1 rounded border-2 border-[var(--border-color)] font-bold">4 人</button>
+                        </div>
+                    </div>
+
                     <button id="create-room-btn" onclick="createRoom()" class="custom-btn w-full py-2.5 font-bold text-xs uppercase rounded-lg">
                         🆕 建立對戰房間 (我是房主)
                     </button>
@@ -233,29 +245,37 @@
                             <span>房間代碼:</span>
                             <span id="lobby-code-val" class="text-blue-500">----</span>
                         </div>
-                        <div class="flex justify-between text-xs font-bold mb-3">
-                            <span>對戰模式:</span>
-                            <span class="text-red-500">鋼鐵牆 (撞牆死)</span>
+                        <div class="flex justify-between text-xs font-bold mb-2">
+                            <span>對戰人數:</span>
+                            <span id="lobby-player-count-display" class="text-purple-500">2 人</span>
                         </div>
-                        <div class="border-t border-gray-300 pt-2 flex flex-col gap-1 text-[11px] font-semibold">
+                        <div class="border-t border-gray-300 pt-2 flex flex-col gap-1 text-[11px] font-semibold" id="lobby-player-list">
                             <div class="flex justify-between">
-                                <span class="text-blue-500">🔵 玩家 1 (房主):</span>
+                                <span class="text-blue-500">🔵 P1 藍蛇 (房主):</span>
                                 <span id="lobby-p1-status" class="opacity-60">等待中...</span>
                             </div>
                             <div class="flex justify-between">
-                                <span class="text-orange-500">🟠 玩家 2 (訪客):</span>
+                                <span class="text-orange-500">🟠 P2 橘蛇:</span>
                                 <span id="lobby-p2-status" class="opacity-60">等待中...</span>
+                            </div>
+                            <div class="flex justify-between hidden" id="lobby-p3-row">
+                                <span class="text-green-600">🟢 P3 綠蛇:</span>
+                                <span id="lobby-p3-status" class="opacity-60">等待中...</span>
+                            </div>
+                            <div class="flex justify-between hidden" id="lobby-p4-row">
+                                <span class="text-purple-500">🟣 P4 紫蛇:</span>
+                                <span id="lobby-p4-status" class="opacity-60">等待中...</span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- 邀請連結（智慧偵測：如果是本機網址則顯示上線指南） -->
+                    <!-- 邀請連結 -->
                     <div id="share-link-section" class="flex flex-col gap-1.5 w-full">
                         <div class="flex gap-1.5 w-full">
                             <input id="share-link-input" readonly type="text" value="" onclick="this.select(); try{ document.execCommand('copy'); }catch(e){}" class="flex-grow border-2 border-[var(--border-color)] bg-black/5 px-2 py-1.5 text-[11px] font-bold rounded-lg outline-none select-all text-center cursor-pointer" title="點擊即可自動全選與嘗試複製">
                             <button onclick="copyShareLink()" class="px-3 py-1.5 text-[10px] font-bold border-2 border-[var(--border-color)] bg-white active:bg-gray-200 rounded-lg">複製</button>
                         </div>
-                        <p class="text-[9px] text-gray-500 font-semibold text-center leading-normal">💡 邀請網址內含連線配置。您的朋友點開後不需任何設定即可一秒對戰！</p>
+                        <p class="text-[9px] text-gray-500 font-semibold text-center leading-normal">💡 將連結傳給所有對手，人數到齊後即可開始！</p>
                     </div>
 
                     <!-- 行動按鈕 -->
@@ -282,14 +302,18 @@
                     <div class="text-2xl font-black mb-1" id="multi-winner-title">藍蛇 獲勝！</div>
                     <div class="text-xs font-bold mb-4 opacity-75" id="multi-over-reason">橘蛇不小心撞到了牆壁！</div>
                     
-                    <div class="bg-black/5 p-3 rounded-lg border border-[var(--border-color)] mb-6 text-xs font-semibold text-left flex flex-col gap-1">
+                    <div class="bg-black/5 p-3 rounded-lg border border-[var(--border-color)] mb-4 text-xs font-semibold text-left flex flex-col gap-1" id="multi-final-scores">
                         <div class="flex justify-between text-blue-500">
-                            <span>藍蛇 (P1) 得分:</span>
-                            <span id="p1-final-score">0</span>
+                            <span>🔵 P1 藍蛇:</span><span id="p1-final-score">0</span>
                         </div>
                         <div class="flex justify-between text-orange-500">
-                            <span>橘蛇 (P2) 得分:</span>
-                            <span id="p2-final-score">0</span>
+                            <span>🟠 P2 橘蛇:</span><span id="p2-final-score">0</span>
+                        </div>
+                        <div class="flex justify-between text-green-600 hidden" id="p3-final-row">
+                            <span>🟢 P3 綠蛇:</span><span id="p3-final-score">0</span>
+                        </div>
+                        <div class="flex justify-between text-purple-500 hidden" id="p4-final-row">
+                            <span>🟣 P4 紫蛇:</span><span id="p4-final-score">0</span>
                         </div>
                     </div>
 
@@ -339,43 +363,57 @@
     <!-- PeerJS 載入 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
     <script>
-        // === PeerJS 多人連線模組 ===
-        // P1 (房主) 建立 Peer，lobbyId 即為其 PeerID
-        // P2 (訪客) 連接到 P1 的 PeerID
-        // 訊息格式: { type: 'dir'|'start'|'gameover'|'chat'|'rematch'|'lobby_back', payload: ... }
+        // === PeerJS 多人連線模組 (Star topology: P1 為中心，最多連 P2/P3/P4) ===
+        // 訊息格式: { type: 'dir'|'start'|'tick'|'chat'|'rematch'|'lobby_back'|'joined', payload: ... }
 
-        let peer = null;        // 本地 Peer 實例
-        let conn = null;        // 連線物件 (P1 端: DataConnection from P2; P2 端: DataConnection to P1)
-        let peerUserId = 'snake_' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        let peer = null;
+        // P1 (host) 維護多條連線，key 為 role ('p2'/'p3'/'p4')
+        let guestConns = {};   // { p2: DataConnection, p3: ..., p4: ... }
+        // P2/P3/P4 只有一條連到 P1 的連線
+        let hostConn = null;
 
         function initPeer(customId, onOpenCb, onErrorCb) {
-            if (peer) { peer.destroy(); peer = null; conn = null; }
+            if (peer) { peer.destroy(); peer = null; }
+            guestConns = {};
+            hostConn = null;
             peer = new Peer(customId, {
-                config: {
-                    iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' }
-                    ]
-                }
+                config: { iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]}
             });
-            peer.on('open', (id) => {
-                console.log('PeerJS 已開啟，ID:', id);
-                if (onOpenCb) onOpenCb(id);
-            });
-            peer.on('error', (err) => {
-                console.error('PeerJS 錯誤:', err);
-                if (onErrorCb) onErrorCb(err);
-            });
+            peer.on('open', (id) => { if (onOpenCb) onOpenCb(id); });
+            peer.on('error', (err) => { if (onErrorCb) onErrorCb(err); });
             return peer;
         }
 
-        function sendToPeer(msg) {
-            if (conn && conn.open) {
-                conn.send(msg);
-            }
+        // P1 廣播給所有已連線的訪客
+        function broadcastToGuests(msg) {
+            Object.values(guestConns).forEach(c => { if (c && c.open) c.send(msg); });
         }
 
-        window.peerModule = { initPeer, sendToPeer, getPeer: () => peer, getConn: () => conn, setConn: (c) => { conn = c; } };
+        // P2/P3/P4 傳送訊息給 P1
+        function sendToHost(msg) {
+            if (hostConn && hostConn.open) hostConn.send(msg);
+        }
+
+        // P1 傳送給特定訪客
+        function sendToGuest(role, msg) {
+            const c = guestConns[role];
+            if (c && c.open) c.send(msg);
+        }
+
+        window.peerModule = {
+            initPeer,
+            broadcastToGuests,
+            sendToHost,
+            sendToGuest,
+            getPeer: () => peer,
+            getGuestConns: () => guestConns,
+            setGuestConn: (role, c) => { guestConns[role] = c; },
+            getHostConn: () => hostConn,
+            setHostConn: (c) => { hostConn = c; }
+        };
     </script>
 
     <script>
@@ -500,11 +538,38 @@
         let isMultiplayerMode = false;
         let lobbyId = null;
         // (lobbyUnsubscribe 已由 PeerJS 取代，不再需要)
-        let playerRole = null; // 'p1' (Host) or 'p2' (Client)
+        let playerRole = null; // 'p1' | 'p2' | 'p3' | 'p4'
+        let maxPlayers = 2;    // 房主設定的對戰人數 (2-4)
         let multiGameInterval = null;
-        let p1Direction = { dx: GRID_SIZE, dy: 0 };
-        let p2Direction = { dx: -GRID_SIZE, dy: 0 };
+        // 各玩家方向 (P1 本地維護；P2/P3/P4 透過 PeerJS 傳入)
+        let playerDirections = {
+            p1: { dx: GRID_SIZE, dy: 0 },
+            p2: { dx: -GRID_SIZE, dy: 0 },
+            p3: { dx: 0, dy: GRID_SIZE },
+            p4: { dx: 0, dy: -GRID_SIZE }
+        };
         let currentMultiLobbyData = null;
+
+        // 蛇的顏色設定
+        const SNAKE_COLORS = {
+            p1: { head: '#1D4ED8', body: '#3B82F6', name: '🔵 藍蛇' },
+            p2: { head: '#C2410C', body: '#F97316', name: '🟠 橘蛇' },
+            p3: { head: '#15803D', body: '#22C55E', name: '🟢 綠蛇' },
+            p4: { head: '#7E22CE', body: '#A855F7', name: '🟣 紫蛇' }
+        };
+
+        // 人數選擇按鈕切換
+        function setPlayerCount(n) {
+            maxPlayers = n;
+            [2, 3, 4].forEach(i => {
+                const btn = document.getElementById(`pc-btn-${i}`);
+                if (i === n) {
+                    btn.className = "flex-1 text-xs py-1 rounded border-2 border-[var(--border-color)] bg-[var(--charcoal)] text-[var(--primary-invert)] font-bold";
+                } else {
+                    btn.className = "flex-1 text-xs py-1 rounded border-2 border-[var(--border-color)] font-bold";
+                }
+            });
+        }
 
         // 主頁籤切換 (單人遊玩 vs 遠端對戰)
         function switchMainTab(tab) {
@@ -799,7 +864,7 @@
         }
 
 
-        // === 多人連線對戰核心邏輯 (PeerJS P2P 版) ===
+        // === 多人連線對戰核心邏輯 (PeerJS P2P 版，支援 2-4 人) ===
 
         function showSetupPanel() {
             multiSetupPanel.classList.remove('hidden');
@@ -811,7 +876,33 @@
             multiLobbyPanel.classList.remove('hidden');
         }
 
-        // 檢查網址，確認是否是在帶有 Room ID 情況下開啟
+        // 更新大廳玩家列表顯示
+        function updateLobbyUI(joinedRoles) {
+            const allRoles = ['p1', 'p2', 'p3', 'p4'];
+            const roleNames = { p1: '房主', p2: '訪客', p3: '訪客', p4: '訪客' };
+
+            // 顯示/隱藏 P3/P4 列
+            document.getElementById('lobby-p3-row').classList.toggle('hidden', maxPlayers < 3);
+            document.getElementById('lobby-p4-row').classList.toggle('hidden', maxPlayers < 4);
+            document.getElementById('lobby-player-count-display').textContent = `${maxPlayers} 人`;
+
+            allRoles.slice(0, maxPlayers).forEach(role => {
+                const el = document.getElementById(`lobby-${role}-status`);
+                if (el) el.textContent = joinedRoles.includes(role) ? '🟢 已加入' : '⏳ 等待中...';
+            });
+
+            // 房主才能開始，且要等人數到齊
+            if (playerRole === 'p1') {
+                startMultiBtn.disabled = joinedRoles.length < maxPlayers;
+            }
+        }
+
+        // 更新計分板 P3/P4 行可見性
+        function updateScoreboardVisibility() {
+            document.getElementById('score-row-2').classList.toggle('hidden', maxPlayers < 3);
+        }
+
+        // 檢查網址 Room 參數
         function checkUrlRoom() {
             const params = new URLSearchParams(window.location.search);
             const rId = params.get('room');
@@ -822,27 +913,23 @@
             }
         }
 
-        // 在頁面載入後檢查 URL Room
-        window.addEventListener('load', () => {
-            checkUrlRoom();
-        });
+        window.addEventListener('load', () => { checkUrlRoom(); });
 
-        // 房主建立房間 (PeerJS: 用 lobbyId 作為 PeerID)
+        // 建立房間 (P1)
         function createRoom() {
             lobbyId = 'SNK' + Math.random().toString(36).substring(2, 6).toUpperCase();
             playerRole = 'p1';
+            const joinedRoles = ['p1'];
 
             showInternalMessage("⏳ 正在建立房間，請稍候...");
 
             const { initPeer } = window.peerModule;
             initPeer(lobbyId,
                 (id) => {
-                    // Peer 開啟成功
                     showLobbyPanel();
                     lobbyCodeVal.textContent = id;
-
-                    // 設定分享連結
                     document.getElementById('share-link-section').classList.remove('hidden');
+
                     let shareUrl = lobbyId;
                     try {
                         const url = new URL(window.location.href);
@@ -850,38 +937,50 @@
                         shareUrl = url.toString();
                     } catch(e) {}
                     shareLinkInput.value = shareUrl;
-
-                    lobbyP1Status.textContent = "🟢 已就緒 (你)";
-                    lobbyP2Status.textContent = "⏳ 等待對手加入...";
-                    startMultiBtn.disabled = true;
                     roomIdDisplay.textContent = `房間號碼: ${lobbyId} (你是 P1)`;
 
+                    updateLobbyUI(joinedRoles);
                     showInternalMessage(`✅ 房間 ${lobbyId} 已建立！等待對手加入...`);
 
-                    // 監聽 P2 的連入
                     const myPeer = window.peerModule.getPeer();
                     myPeer.on('connection', (newConn) => {
-                        window.peerModule.setConn(newConn);
+                        // 分配角色給新連入的訪客
+                        const nextRole = ['p2', 'p3', 'p4'].find(r => !joinedRoles.includes(r));
+                        if (!nextRole) {
+                            newConn.on('open', () => newConn.send({ type: 'full' }));
+                            return;
+                        }
+
+                        window.peerModule.setGuestConn(nextRole, newConn);
+
                         newConn.on('open', () => {
-                            lobbyP2Status.textContent = "🟢 對手已加入！";
-                            startMultiBtn.disabled = false;
-                            showInternalMessage("🎮 對手已加入房間！可以開始對戰！");
-                            newConn.send({ type: 'joined', payload: { role: 'p2' } });
+                            joinedRoles.push(nextRole);
+                            // 告訴訪客他的角色 + 房間設定
+                            newConn.send({ type: 'assigned', payload: { role: nextRole, maxPlayers } });
+                            updateLobbyUI(joinedRoles);
+                            showInternalMessage(`🎮 ${SNAKE_COLORS[nextRole].name} 已加入！(${joinedRoles.length}/${maxPlayers})`);
                         });
-                        newConn.on('data', onPeerData);
+
+                        newConn.on('data', (msg) => onPeerData(msg, nextRole));
+
                         newConn.on('close', () => {
-                            showInternalMessage("⚠️ 對手已斷線。");
-                            lobbyP2Status.textContent = "❌ 對手已斷線";
-                            startMultiBtn.disabled = true;
-                            if (isGameStarted) {
-                                endMultiGame('p1', '對手已斷線，你獲勝！');
+                            const idx = joinedRoles.indexOf(nextRole);
+                            if (idx > -1) joinedRoles.splice(idx, 1);
+                            window.peerModule.setGuestConn(nextRole, null);
+                            updateLobbyUI(joinedRoles);
+                            showInternalMessage(`⚠️ ${SNAKE_COLORS[nextRole].name} 已斷線。`);
+                            if (isGameStarted && currentMultiLobbyData) {
+                                // 斷線玩家直接判死
+                                if (currentMultiLobbyData[nextRole]) {
+                                    currentMultiLobbyData[nextRole].alive = false;
+                                }
                             }
                         });
                     });
                 },
                 (err) => {
                     if (err.type === 'unavailable-id') {
-                        showInternalMessage("房間代碼已被使用，正在重試...");
+                        showInternalMessage("代碼衝突，重試中...");
                         setTimeout(createRoom, 500);
                     } else {
                         showInternalMessage("建立房間失敗：" + err.message);
@@ -890,117 +989,130 @@
             );
         }
 
-        // 輸入代碼加入
         function joinRoomFromInput() {
             const rId = document.getElementById('room-input').value.trim().toUpperCase();
-            if (rId) {
-                joinRoom(rId);
-            }
+            if (rId) joinRoom(rId);
         }
 
-        // 加入房間核心 (PeerJS: 作為 P2 連線到 P1 的 PeerID)
+        // 加入房間 (P2/P3/P4)
         function joinRoom(rId) {
             lobbyId = rId;
-            playerRole = 'p2';
+            playerRole = null; // 待 P1 分配
 
             showInternalMessage("⏳ 正在連線到房間...");
 
-            const { initPeer, sendToPeer } = window.peerModule;
-            // P2 用自動 ID
+            const { initPeer } = window.peerModule;
             initPeer(undefined,
                 (myId) => {
                     const myPeer = window.peerModule.getPeer();
                     const newConn = myPeer.connect(lobbyId, { reliable: true });
-                    window.peerModule.setConn(newConn);
+                    window.peerModule.setHostConn(newConn);
 
                     newConn.on('open', () => {
-                        showLobbyPanel();
-                        lobbyCodeVal.textContent = lobbyId;
-                        lobbyP2Status.textContent = "🟢 已就緒 (你)";
-                        lobbyP1Status.textContent = "🟢 房主已就緒";
-                        startMultiBtn.textContent = "等待房主開始...";
-                        startMultiBtn.disabled = true;
-                        roomIdDisplay.textContent = `房間號碼: ${lobbyId} (你是 P2)`;
-                        document.getElementById('share-link-section').classList.add('hidden');
-                        showInternalMessage("✅ 成功加入房間！等待房主開始遊戲...");
+                        showInternalMessage("✅ 已連線，等待房主分配角色...");
                     });
 
-                    newConn.on('data', onPeerData);
+                    newConn.on('data', (msg) => onPeerData(msg, 'host'));
 
                     newConn.on('close', () => {
                         showInternalMessage("⚠️ 與房主的連線已中斷。");
-                        if (isGameStarted) {
-                            endMultiGame('p2', '房主已斷線，你獲勝！');
-                        }
+                        if (isGameStarted) endMultiGame(null, '房主已斷線！');
                     });
 
-                    newConn.on('error', (err) => {
-                        showInternalMessage("連線錯誤：" + err.message);
-                    });
+                    newConn.on('error', (err) => showInternalMessage("連線錯誤：" + err.message));
 
-                    // 5秒連線逾時
                     setTimeout(() => {
                         if (!newConn.open) {
                             showInternalMessage("連線逾時，請確認房間代碼是否正確。");
                             leaveRoom();
                         }
-                    }, 5000);
+                    }, 6000);
                 },
-                (err) => {
-                    showInternalMessage("連線失敗：" + err.message);
-                }
+                (err) => showInternalMessage("連線失敗：" + err.message)
             );
         }
 
-        // 接收 Peer 訊息的總處理器
-        function onPeerData(msg) {
+        // 統一訊息處理器
+        function onPeerData(msg, from) {
             if (!msg || !msg.type) return;
 
             switch (msg.type) {
-                case 'joined':
-                    // P2 已收到加入確認 (目前在 open 事件已處理，預留)
+                case 'full':
+                    showInternalMessage("房間已滿，無法加入！");
+                    leaveRoom();
+                    break;
+
+                case 'assigned':
+                    // 訪客收到角色分配
+                    playerRole = msg.payload.role;
+                    maxPlayers = msg.payload.maxPlayers;
+                    showLobbyPanel();
+                    lobbyCodeVal.textContent = lobbyId;
+                    roomIdDisplay.textContent = `房間號碼: ${lobbyId} (你是 ${playerRole.toUpperCase()})`;
+                    document.getElementById('share-link-section').classList.add('hidden');
+                    startMultiBtn.textContent = "等待房主開始...";
+                    startMultiBtn.disabled = true;
+                    // 更新大廳顯示（訪客視角只顯示自己已到）
+                    document.getElementById('lobby-p3-row').classList.toggle('hidden', maxPlayers < 3);
+                    document.getElementById('lobby-p4-row').classList.toggle('hidden', maxPlayers < 4);
+                    document.getElementById('lobby-player-count-display').textContent = `${maxPlayers} 人`;
+                    document.getElementById(`lobby-${playerRole}-status`).textContent = '🟢 已加入 (你)';
+                    document.getElementById('lobby-p1-status').textContent = '🟢 已就緒';
+                    showInternalMessage(`✅ 已加入！你是 ${SNAKE_COLORS[playerRole].name}，等待房主開始...`);
+                    break;
+
+                case 'lobby_update':
+                    // P1 廣播大廳狀態給所有訪客
+                    if (msg.payload.joinedRoles) {
+                        msg.payload.joinedRoles.forEach(r => {
+                            const el = document.getElementById(`lobby-${r}-status`);
+                            if (el) el.textContent = r === playerRole ? '🟢 已加入 (你)' : '🟢 已加入';
+                        });
+                    }
                     break;
 
                 case 'start':
-                    // P1 通知開始遊戲，帶初始遊戲狀態
-                    if (playerRole === 'p2') {
+                    if (playerRole !== 'p1') {
                         currentMultiLobbyData = msg.payload;
+                        updateScoreboardVisibility();
                         startMultiplayerLoop();
                     }
                     break;
 
                 case 'tick':
-                    // P1 (host) 每 tick 廣播遊戲狀態給 P2
-                    if (playerRole === 'p2') {
+                    if (playerRole !== 'p1') {
                         currentMultiLobbyData = msg.payload;
                         if (msg.payload.status === 'gameover') {
                             handleMultiplayerGameOver(msg.payload);
                         } else {
                             drawMultiplayer(msg.payload);
-                            p1ScoreDisplay.textContent = msg.payload.p1.score;
-                            p2ScoreDisplay.textContent = msg.payload.p2.score;
+                            updateScoreDisplay(msg.payload);
                         }
                     }
                     break;
 
                 case 'dir':
-                    // P2 傳送方向給 P1 (host)
-                    if (playerRole === 'p1') {
-                        const d = msg.payload;
-                        // 防止反向
-                        if (d.dx !== 0 && p2Direction.dx !== 0) break;
-                        if (d.dy !== 0 && p2Direction.dy !== 0) break;
-                        p2Direction = d;
+                    // P1 收到訪客的方向
+                    if (playerRole === 'p1' && msg.payload && msg.payload.role) {
+                        const d = msg.payload.dir;
+                        const role = msg.payload.role;
+                        const cur = playerDirections[role];
+                        if (d.dx !== 0 && d.dx === -cur.dx) break;
+                        if (d.dy !== 0 && d.dy === -cur.dy) break;
+                        playerDirections[role] = d;
                     }
                     break;
 
                 case 'chat':
                     handleChatMessage(msg.payload);
+                    // 若是 P1 收到，轉發給其他訪客
+                    if (playerRole === 'p1') {
+                        window.peerModule.broadcastToGuests({ type: 'chat', payload: msg.payload });
+                    }
                     break;
 
                 case 'lobby_back':
-                    // P1 通知返回大廳
-                    if (playerRole === 'p2') {
+                    if (playerRole !== 'p1') {
                         isGameStarted = false;
                         gameoverOverlay.classList.add('hidden');
                         showLobbyPanel();
@@ -1008,42 +1120,42 @@
                     break;
 
                 case 'rematch':
-                    // 對方請求再次對戰
-                    showInternalMessage("對手要求再戰！房主即可點擊開始！");
+                    showInternalMessage("有玩家發送再戰邀請！");
                     break;
             }
         }
 
-        // 離開房間
         function leaveRoom() {
-            const c = window.peerModule.getConn();
-            if (c) { try { c.close(); } catch(e){} }
+            Object.values(window.peerModule.getGuestConns()).forEach(c => { try { if(c) c.close(); } catch(e){} });
+            const hc = window.peerModule.getHostConn();
+            if (hc) { try { hc.close(); } catch(e){} }
             const p = window.peerModule.getPeer();
             if (p) { try { p.destroy(); } catch(e){} }
-            window.peerModule.setConn(null);
+            window.peerModule.setHostConn(null);
 
             lobbyId = null;
             playerRole = null;
+            maxPlayers = 2;
+            setPlayerCount(2);
 
             try {
                 const url = new URL(window.location.href);
                 url.searchParams.delete('room');
                 window.history.replaceState(null, '', url.toString());
-            } catch (e) {}
+            } catch(e) {}
 
             showSetupPanel();
         }
 
-        // 離線降級模擬 (本地雙人)
         function fallbackOfflineLobby() {
             showInternalMessage("已啟動【單機雙人模式】(P1: WASD / P2: 方向鍵)！");
             isMultiplayerMode = true;
             lobbyId = "LOCAL";
             playerRole = "p1";
-
+            maxPlayers = 2;
             lobbyCodeVal.textContent = "本地模擬";
-            lobbyP1Status.textContent = "已連線 (本地 P1)";
-            lobbyP2Status.textContent = "已連線 (本地 P2)";
+            document.getElementById('lobby-p1-status').textContent = "已連線 (本地 P1)";
+            document.getElementById('lobby-p2-status').textContent = "已連線 (本地 P2)";
             startMultiBtn.disabled = false;
             document.getElementById('share-link-section').classList.add('hidden');
             showLobbyPanel();
@@ -1067,50 +1179,45 @@
         }
 
         function startMultiplayerGame() {
-            if (lobbyId === 'LOCAL') {
-                startLocalTwoPlayerGame();
-                return;
-            }
-
-            // 只有 P1 (房主) 可以啟動
+            if (lobbyId === 'LOCAL') { startLocalTwoPlayerGame(); return; }
             if (playerRole !== 'p1') return;
 
-            const startX_p1 = 4 * GRID_SIZE, startY_p1 = 10 * GRID_SIZE;
-            const startX_p2 = 15 * GRID_SIZE, startY_p2 = 10 * GRID_SIZE;
+            // 起始位置依玩家數分配
+            const startPositions = {
+                p1: { x: 3*GRID_SIZE,  y: 10*GRID_SIZE, dx: GRID_SIZE,  dy: 0 },
+                p2: { x: 16*GRID_SIZE, y: 10*GRID_SIZE, dx: -GRID_SIZE, dy: 0 },
+                p3: { x: 10*GRID_SIZE, y: 3*GRID_SIZE,  dx: 0, dy: GRID_SIZE  },
+                p4: { x: 10*GRID_SIZE, y: 16*GRID_SIZE, dx: 0, dy: -GRID_SIZE }
+            };
+
+            const players = {};
+            ['p1','p2','p3','p4'].slice(0, maxPlayers).forEach(role => {
+                const sp = startPositions[role];
+                players[role] = {
+                    score: 0, alive: true,
+                    snake: [
+                        { x: sp.x, y: sp.y },
+                        { x: sp.x - sp.dx, y: sp.y - sp.dy },
+                        { x: sp.x - sp.dx*2, y: sp.y - sp.dy*2 }
+                    ]
+                };
+                playerDirections[role] = { dx: sp.dx, dy: sp.dy };
+            });
 
             const initialState = {
                 status: 'playing',
-                food: { x: 10 * GRID_SIZE, y: 5 * GRID_SIZE, type: 'NORMAL' },
-                p1: {
-                    score: 0, alive: true,
-                    snake: [
-                        { x: startX_p1, y: startY_p1 },
-                        { x: startX_p1 - GRID_SIZE, y: startY_p1 },
-                        { x: startX_p1 - GRID_SIZE * 2, y: startY_p1 }
-                    ]
-                },
-                p2: {
-                    score: 0, alive: true,
-                    snake: [
-                        { x: startX_p2, y: startY_p2 },
-                        { x: startX_p2 + GRID_SIZE, y: startY_p2 },
-                        { x: startX_p2 + GRID_SIZE * 2, y: startY_p2 }
-                    ]
-                },
-                winner: ''
+                maxPlayers,
+                food: { x: 10*GRID_SIZE, y: 10*GRID_SIZE, type: 'NORMAL' },
+                winner: '',
+                ...players
             };
 
             currentMultiLobbyData = JSON.parse(JSON.stringify(initialState));
-            p1Direction = { dx: GRID_SIZE, dy: 0 };
-            p2Direction = { dx: -GRID_SIZE, dy: 0 };
-
-            // 通知 P2 開始，並帶上初始狀態
-            window.peerModule.sendToPeer({ type: 'start', payload: initialState });
-
+            updateScoreboardVisibility();
+            window.peerModule.broadcastToGuests({ type: 'start', payload: initialState });
             startMultiplayerLoop();
         }
 
-        // 啟動或同步對戰 Loop
         function startMultiplayerLoop() {
             multiOverlay.classList.add('hidden');
             gameoverOverlay.classList.add('hidden');
@@ -1120,11 +1227,9 @@
             if (multiGameInterval) clearInterval(multiGameInterval);
 
             if (playerRole === 'p1') {
-                // P1 是 host，負責所有遊戲邏輯計算並廣播給 P2
                 multiGameInterval = setInterval(hostMultiplayerTick, 150);
             } else {
-                // P2 只負責渲染，資料由 P1 的 tick 訊息驅動 (在 onPeerData 裡處理)
-                // 這裡只做一個保底的畫面更新以防萬一
+                // 訪客只負責渲染，onPeerData 的 tick 訊息驅動畫面
                 multiGameInterval = setInterval(() => {
                     if (currentMultiLobbyData && currentMultiLobbyData.status === 'playing') {
                         drawMultiplayer(currentMultiLobbyData);
@@ -1133,111 +1238,122 @@
             }
         }
 
-        // 房主專屬 Tick (做所有移動、碰撞計算，再廣播給 P2)
         function hostMultiplayerTick() {
             if (!currentMultiLobbyData || currentMultiLobbyData.status !== 'playing') return;
 
-            let data = JSON.parse(JSON.stringify(currentMultiLobbyData));
-
-            // 規則1：穿牆（wrap-around）
-            const wrapPos = (val, max) => {
-                if (val < 0) return max - GRID_SIZE;
-                if (val >= max) return 0;
-                return val;
-            };
-
-            let p1Head = {
-                x: wrapPos(data.p1.snake[0].x + p1Direction.dx, canvas.width),
-                y: wrapPos(data.p1.snake[0].y + p1Direction.dy, canvas.height)
-            };
-            let p2Head = {
-                x: wrapPos(data.p2.snake[0].x + p2Direction.dx, canvas.width),
-                y: wrapPos(data.p2.snake[0].y + p2Direction.dy, canvas.height)
-            };
-
-            // 規則4：只判斷撞到對手蛇身（不判斷自撞，也不判斷牆壁）
-            const checkBodyCollision = (head, body) =>
-                body.some(seg => seg.x === head.x && seg.y === head.y);
-
-            let p1Dead = checkBodyCollision(p1Head, data.p2.snake); // 只撞對手
-            let p2Dead = checkBodyCollision(p2Head, data.p1.snake); // 只撞對手
-
-            // 頭碰頭：雙方同時死亡
-            if (p1Head.x === p2Head.x && p1Head.y === p2Head.y) { p1Dead = true; p2Dead = true; }
-
-            if (!p1Dead) data.p1.snake.unshift(p1Head);
-            if (!p2Dead) data.p2.snake.unshift(p2Head);
-
-            let foodEaten = false;
-            if (!p1Dead && p1Head.x === data.food.x && p1Head.y === data.food.y) {
-                data.p1.score += data.food.type === 'GOLD' ? 30 : 10;
-                foodEaten = true;
-                playSound('eat');
-            } else if (!p1Dead) {
-                data.p1.snake.pop();
-            }
-
-            if (!p2Dead && p2Head.x === data.food.x && p2Head.y === data.food.y) {
-                data.p2.score += data.food.type === 'GOLD' ? 30 : 10;
-                foodEaten = true;
-                playSound('eat');
-            } else if (!p2Dead) {
-                data.p2.snake.pop();
-            }
-
-            if (foodEaten) {
-                data.food = hostGenerateFood(data.p1.snake, data.p2.snake);
-            }
-
-            // 規則3：先取得 300 分者勝利
+            const data = JSON.parse(JSON.stringify(currentMultiLobbyData));
+            const roles = ['p1','p2','p3','p4'].slice(0, data.maxPlayers);
             const WIN_SCORE = 300;
-            if (data.p1.score >= WIN_SCORE && data.p2.score >= WIN_SCORE) {
-                p1Dead = true; p2Dead = true;
-            } else if (data.p1.score >= WIN_SCORE) {
-                data.status = 'gameover'; data.winner = 'p1';
-            } else if (data.p2.score >= WIN_SCORE) {
-                data.status = 'gameover'; data.winner = 'p2';
-            }
 
-            if (p1Dead || p2Dead) {
-                data.status = 'gameover';
-                if (!data.winner) {
-                    if (p1Dead && p2Dead) data.winner = 'draw';
-                    else if (p1Dead) data.winner = 'p2';
-                    else data.winner = 'p1';
+            // 穿牆 wrap
+            const wrap = (val, max) => { if (val < 0) return max - GRID_SIZE; if (val >= max) return 0; return val; };
+
+            // 計算新蛇頭
+            const newHeads = {};
+            roles.forEach(role => {
+                if (!data[role].alive) return;
+                const d = playerDirections[role];
+                newHeads[role] = {
+                    x: wrap(data[role].snake[0].x + d.dx, canvas.width),
+                    y: wrap(data[role].snake[0].y + d.dy, canvas.height)
+                };
+            });
+
+            // 碰撞偵測：撞到任何其他蛇的身體（或頭碰頭）
+            const deaths = {};
+            roles.forEach(role => {
+                if (!data[role].alive) return;
+                const head = newHeads[role];
+                roles.forEach(other => {
+                    if (!data[other].alive) return;
+                    // 撞到對手的蛇身（不含頭，頭碰頭另外處理）
+                    if (other !== role) {
+                        const bodyHit = data[other].snake.some(seg => seg.x === head.x && seg.y === head.y);
+                        if (bodyHit) deaths[role] = true;
+                    }
+                });
+            });
+
+            // 頭碰頭：兩者都死
+            roles.forEach(r1 => {
+                if (!data[r1].alive || !newHeads[r1]) return;
+                roles.forEach(r2 => {
+                    if (r1 >= r2 || !data[r2].alive || !newHeads[r2]) return;
+                    if (newHeads[r1].x === newHeads[r2].x && newHeads[r1].y === newHeads[r2].y) {
+                        deaths[r1] = true; deaths[r2] = true;
+                    }
+                });
+            });
+
+            // 移動蛇
+            roles.forEach(role => {
+                if (!data[role].alive) return;
+                if (deaths[role]) { data[role].alive = false; return; }
+                data[role].snake.unshift(newHeads[role]);
+            });
+
+            // 食物碰撞
+            let foodEaten = false;
+            roles.forEach(role => {
+                if (!data[role].alive || deaths[role]) return;
+                const head = newHeads[role];
+                if (head.x === data.food.x && head.y === data.food.y) {
+                    data[role].score += data.food.type === 'GOLD' ? 30 : 10;
+                    foodEaten = true;
+                    playSound('eat');
+                } else {
+                    data[role].snake.pop();
                 }
+            });
+
+            if (foodEaten) data.food = hostGenerateFood(...roles.map(r => data[r].snake));
+
+            // 勝利條件：先到 300 分
+            let winner = '';
+            roles.forEach(role => {
+                if (data[role].score >= WIN_SCORE) winner = role;
+            });
+
+            // 存活人數
+            const aliveRoles = roles.filter(r => data[r].alive);
+
+            if (winner || aliveRoles.length <= 1) {
+                data.status = 'gameover';
+                if (!winner) winner = aliveRoles.length === 1 ? aliveRoles[0] : 'draw';
+                data.winner = winner;
             }
 
             currentMultiLobbyData = data;
+            window.peerModule.broadcastToGuests({ type: 'tick', payload: data });
 
-            // 廣播最新狀態給 P2
-            window.peerModule.sendToPeer({ type: 'tick', payload: data });
-
-            // P1 自己渲染
             if (data.status === 'gameover') {
                 handleMultiplayerGameOver(data);
             } else {
                 drawMultiplayer(data);
-                p1ScoreDisplay.textContent = data.p1.score;
-                p2ScoreDisplay.textContent = data.p2.score;
+                updateScoreDisplay(data);
             }
         }
 
-        function hostGenerateFood(p1Snake, p2Snake) {
+        function hostGenerateFood(...snakeArrays) {
+            const allSnakes = snakeArrays.flat();
             const rand = Math.random();
-            let foodType = rand < 0.2 ? 'GOLD' : 'NORMAL';
-
+            const foodType = rand < 0.2 ? 'GOLD' : 'NORMAL';
             while (true) {
-                const foodX = Math.floor(Math.random() * TILE_COUNT) * GRID_SIZE;
-                const foodY = Math.floor(Math.random() * TILE_COUNT) * GRID_SIZE;
-
-                const onP1 = p1Snake.some(seg => seg.x === foodX && seg.y === foodY);
-                const onP2 = p2Snake.some(seg => seg.x === foodX && seg.y === foodY);
-
-                if (!onP1 && !onP2) {
-                    return { x: foodX, y: foodY, type: foodType };
+                const fx = Math.floor(Math.random() * TILE_COUNT) * GRID_SIZE;
+                const fy = Math.floor(Math.random() * TILE_COUNT) * GRID_SIZE;
+                if (!allSnakes.some(s => s.x === fx && s.y === fy)) {
+                    return { x: fx, y: fy, type: foodType };
                 }
             }
+        }
+
+        function updateScoreDisplay(data) {
+            const roles = ['p1','p2','p3','p4'];
+            const els = { p1: 'p1-score-display', p2: 'p2-score-display', p3: 'p3-score-display', p4: 'p4-score-display' };
+            roles.forEach(r => {
+                const el = document.getElementById(els[r]);
+                if (el && data[r]) el.textContent = data[r].score;
+            });
         }
 
 
@@ -1394,98 +1510,101 @@
 
         // 多人遊戲結束處理
         function handleMultiplayerGameOver(data) {
+            if (isGameOver) return;
             isGameOver = true;
             clearInterval(multiGameInterval);
 
-            const p1Score = data.p1 ? data.p1.score : 0;
-            const p2Score = data.p2 ? data.p2.score : 0;
             const WIN_SCORE = 300;
+            const roles = ['p1','p2','p3','p4'];
+            const winner = data.winner;
 
-            let winnerText = "雙方平手！";
-            let reasonText = "兩條蛇在同一個瞬間相撞！";
-
-            if (data.winner === 'p1') {
-                winnerText = "🔵 藍蛇 (房主) 獲勝！";
-                reasonText = p1Score >= WIN_SCORE ? `藍蛇率先達到 ${WIN_SCORE} 分！` : "橘蛇撞上了藍蛇的身體！";
-                playSound('special');
-            } else if (data.winner === 'p2') {
-                winnerText = "🟠 橘蛇 (訪客) 獲勝！";
-                reasonText = p2Score >= WIN_SCORE ? `橘蛇率先達到 ${WIN_SCORE} 分！` : "藍蛇撞上了橘蛇的身體！";
-                playSound('special');
-            } else {
+            let winnerText, reasonText;
+            if (winner === 'draw' || !winner) {
+                winnerText = "💥 平手！同時落敗！";
+                reasonText = "多條蛇在同一瞬間相撞！";
                 playSound('die');
+            } else {
+                const wc = SNAKE_COLORS[winner];
+                const wScore = data[winner] ? data[winner].score : 0;
+                winnerText = `${wc.name} 獲勝！`;
+                reasonText = wScore >= WIN_SCORE ? `${wc.name}率先達到 ${WIN_SCORE} 分！` : `${wc.name}是最後存活的蛇！`;
+                playSound('special');
             }
 
             multiWinnerTitle.textContent = winnerText;
             multiOverReason.textContent = reasonText;
-            p1FinalScore.textContent = p1Score;
-            p2FinalScore.textContent = p2Score;
+
+            // 動態顯示各玩家得分
+            roles.forEach(r => {
+                const finalRow = document.getElementById(`${r}-final-row`);
+                const finalEl = document.getElementById(`${r}-final-score`);
+                const n = data.maxPlayers || maxPlayers;
+                const idx = parseInt(r[1]);
+                if (finalRow) finalRow.classList.toggle('hidden', idx > n);
+                if (finalEl && data[r]) finalEl.textContent = data[r].score;
+            });
+            // p1/p2 永遠顯示
+            document.getElementById('p1-final-score').textContent = data.p1 ? data.p1.score : 0;
+            document.getElementById('p2-final-score').textContent = data.p2 ? data.p2.score : 0;
 
             singleOverPanel.classList.add('hidden');
             multiOverPanel.classList.remove('hidden');
             gameoverOverlay.classList.remove('hidden');
         }
 
-        // 強制結束多人遊戲 (斷線用)
+        // 斷線強制結束
         function endMultiGame(winner, reason) {
             if (isGameOver) return;
-            isGameOver = true;
-            if (multiGameInterval) clearInterval(multiGameInterval);
-            playSound('die');
             const fakeData = {
-                winner,
-                p1: { score: currentMultiLobbyData ? currentMultiLobbyData.p1.score : 0 },
-                p2: { score: currentMultiLobbyData ? currentMultiLobbyData.p2.score : 0 }
+                winner: winner || 'draw',
+                maxPlayers,
+                p1: { score: currentMultiLobbyData?.p1?.score || 0 },
+                p2: { score: currentMultiLobbyData?.p2?.score || 0 },
+                p3: { score: currentMultiLobbyData?.p3?.score || 0 },
+                p4: { score: currentMultiLobbyData?.p4?.score || 0 }
             };
             handleMultiplayerGameOver(fakeData);
         }
 
-        // 返回對戰大廳
+        // 返回大廳
         function returnToLobby() {
             gameoverOverlay.classList.add('hidden');
             isGameStarted = false;
             isGameOver = false;
             if (multiGameInterval) clearInterval(multiGameInterval);
 
-            if (lobbyId === 'LOCAL') {
-                showLobbyPanel();
-                return;
-            }
+            if (lobbyId === 'LOCAL') { showLobbyPanel(); return; }
 
             if (playerRole === 'p1') {
-                // 通知 P2 返回大廳
-                window.peerModule.sendToPeer({ type: 'lobby_back' });
+                window.peerModule.broadcastToGuests({ type: 'lobby_back' });
                 showLobbyPanel();
             } else {
-                // P2 返回，等待 P1 通知（已在 onPeerData 中處理）
                 showLobbyPanel();
             }
         }
 
         // 再次挑戰
         function requestRematch() {
-            if (lobbyId === 'LOCAL') {
-                startLocalTwoPlayerGame();
-                return;
-            }
-            window.peerModule.sendToPeer({ type: 'rematch' });
+            if (lobbyId === 'LOCAL') { startLocalTwoPlayerGame(); return; }
             if (playerRole === 'p1') {
-                // 房主直接準備，等 P2 確認
-                showInternalMessage("已發送再戰邀請！");
-                returnToLobby();
+                window.peerModule.broadcastToGuests({ type: 'rematch' });
             } else {
-                showInternalMessage("已發送再戰邀請！等待房主開始...");
-                returnToLobby();
+                window.peerModule.sendToHost({ type: 'rematch' });
             }
+            showInternalMessage(playerRole === 'p1' ? "已發送再戰邀請！" : "已發送再戰邀請！等待房主開始...");
+            returnToLobby();
         }
 
-        // 送出即時喊話
+        // 即時喊話
         function sendQuickChat(msgText) {
             const chatPayload = { sender: playerRole, text: msgText, time: Date.now() };
-            handleChatMessage(chatPayload);  // 自己也顯示
-
+            handleChatMessage(chatPayload);
             if (lobbyId === 'LOCAL') return;
-            window.peerModule.sendToPeer({ type: 'chat', payload: chatPayload });
+            if (playerRole === 'p1') {
+                window.peerModule.broadcastToGuests({ type: 'chat', payload: chatPayload });
+            } else {
+                window.peerModule.sendToHost({ type: 'chat', payload: chatPayload });
+            }
         }
 
         // 處理接收到的喊話泡泡
@@ -1509,12 +1628,12 @@
             }
         }
 
-        // 繪製多人對戰 Canvas
+        // 繪製多人對戰 Canvas（支援 2-4 人）
         function drawMultiplayer(data) {
             ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid-bg').trim();
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // 繪製格線
+            // 格線
             ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid-line').trim();
             ctx.lineWidth = 1;
             for (let i = 0; i <= canvas.width; i += GRID_SIZE) {
@@ -1522,45 +1641,47 @@
                 ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
             }
 
-            // 畫果子
+            // 食物
             const f = data.food;
             if (f) {
                 ctx.lineWidth = 2;
                 if (f.type === 'GOLD') {
-                    ctx.fillStyle = '#F59E0B';
-                    ctx.strokeStyle = '#D97706';
+                    ctx.fillStyle = '#F59E0B'; ctx.strokeStyle = '#D97706';
                     ctx.beginPath();
-                    ctx.arc(f.x + GRID_SIZE/2, f.y + GRID_SIZE/2, GRID_SIZE/2 - 2, 0, Math.PI * 2);
+                    ctx.arc(f.x + GRID_SIZE/2, f.y + GRID_SIZE/2, GRID_SIZE/2 - 2, 0, Math.PI*2);
                     ctx.fill(); ctx.stroke();
                 } else {
-                    ctx.fillStyle = '#2D2D2D';
-                    ctx.strokeStyle = '#2D2D2D';
-                    ctx.strokeRect(f.x + 4, f.y + 4, GRID_SIZE - 8, GRID_SIZE - 8);
-                    ctx.fillRect(f.x + 7, f.y + 7, GRID_SIZE - 14, GRID_SIZE - 14);
+                    ctx.fillStyle = '#2D2D2D'; ctx.strokeStyle = '#2D2D2D';
+                    ctx.strokeRect(f.x+4, f.y+4, GRID_SIZE-8, GRID_SIZE-8);
+                    ctx.fillRect(f.x+7, f.y+7, GRID_SIZE-14, GRID_SIZE-14);
                 }
             }
 
-            // 畫 P1 (藍蛇)
-            if (data.p1 && data.p1.snake) {
-                data.p1.snake.forEach((seg, index) => {
-                    ctx.fillStyle = index === 0 ? '#1D4ED8' : '#3B82F6'; 
+            // 畫每條蛇
+            const roles = ['p1','p2','p3','p4'];
+            roles.forEach(role => {
+                if (!data[role] || !data[role].snake || !data[role].alive) return;
+                const colors = SNAKE_COLORS[role];
+                data[role].snake.forEach((seg, idx) => {
+                    ctx.fillStyle = idx === 0 ? colors.head : colors.body;
                     ctx.strokeStyle = '#F6F5F2';
                     ctx.lineWidth = 2;
-                    ctx.fillRect(seg.x + 1, seg.y + 1, GRID_SIZE - 2, GRID_SIZE - 2);
-                    ctx.strokeRect(seg.x + 1, seg.y + 1, GRID_SIZE - 2, GRID_SIZE - 2);
+                    ctx.fillRect(seg.x+1, seg.y+1, GRID_SIZE-2, GRID_SIZE-2);
+                    ctx.strokeRect(seg.x+1, seg.y+1, GRID_SIZE-2, GRID_SIZE-2);
                 });
-            }
+            });
 
-            // 畫 P2 (橘蛇)
-            if (data.p2 && data.p2.snake) {
-                data.p2.snake.forEach((seg, index) => {
-                    ctx.fillStyle = index === 0 ? '#C2410C' : '#F97316'; 
-                    ctx.strokeStyle = '#F6F5F2';
-                    ctx.lineWidth = 2;
-                    ctx.fillRect(seg.x + 1, seg.y + 1, GRID_SIZE - 2, GRID_SIZE - 2);
-                    ctx.strokeRect(seg.x + 1, seg.y + 1, GRID_SIZE - 2, GRID_SIZE - 2);
+            // 死亡玩家顯示半透明殘影
+            roles.forEach(role => {
+                if (!data[role] || !data[role].snake || data[role].alive) return;
+                ctx.globalAlpha = 0.25;
+                const colors = SNAKE_COLORS[role];
+                data[role].snake.forEach(seg => {
+                    ctx.fillStyle = colors.body;
+                    ctx.fillRect(seg.x+1, seg.y+1, GRID_SIZE-2, GRID_SIZE-2);
                 });
-            }
+                ctx.globalAlpha = 1.0;
+            });
         }
 
 
@@ -1568,28 +1689,21 @@
 
         function changeDirection(newDx, newDy) {
             if (!isMultiplayerMode) {
-                // 規則2：禁止180度反向（朝右時不能直接往左，以此類推）
                 if (newDx !== 0 && newDx === -dx) return;
                 if (newDy !== 0 && newDy === -dy) return;
                 nextDirection = { dx: newDx, dy: newDy };
             } else {
-                if (lobbyId === 'LOCAL') {
-                    return;
-                }
+                if (lobbyId === 'LOCAL') return;
+                if (!playerRole) return;
 
-                if (playerRole === 'p1') {
-                    // 規則2：禁止180度反向
-                    if (newDx !== 0 && newDx === -p1Direction.dx) return;
-                    if (newDy !== 0 && newDy === -p1Direction.dy) return;
-                    p1Direction = { dx: newDx, dy: newDy };
-                } else if (playerRole === 'p2') {
-                    // 規則2：禁止180度反向
-                    if (newDx !== 0 && newDx === -p2Direction.dx) return;
-                    if (newDy !== 0 && newDy === -p2Direction.dy) return;
-                    p2Direction = { dx: newDx, dy: newDy };
+                const cur = playerDirections[playerRole];
+                if (newDx !== 0 && newDx === -cur.dx) return;
+                if (newDy !== 0 && newDy === -cur.dy) return;
+                playerDirections[playerRole] = { dx: newDx, dy: newDy };
 
-                    // 透過 PeerJS 傳送方向給 P1 (host)
-                    window.peerModule.sendToPeer({ type: 'dir', payload: p2Direction });
+                // P2/P3/P4 傳方向給 P1 (host)
+                if (playerRole !== 'p1') {
+                    window.peerModule.sendToHost({ type: 'dir', payload: { role: playerRole, dir: { dx: newDx, dy: newDy } } });
                 }
             }
         }
