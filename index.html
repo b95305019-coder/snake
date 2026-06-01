@@ -214,6 +214,17 @@
                         </div>
                     </div>
 
+                    <!-- 電腦難度選擇 -->
+                    <div class="flex flex-col gap-1 bg-black/5 border border-[var(--border-color)] p-2 rounded-lg">
+                        <span class="text-[10px] font-bold text-left">🤖 電腦難度：</span>
+                        <div class="flex gap-1" id="bot-difficulty-selector">
+                            <button onclick="setBotDifficulty('easy')"   id="diff-btn-easy"   class="flex-1 text-xs py-1 rounded border-2 border-[var(--border-color)] font-bold">😴 簡單</button>
+                            <button onclick="setBotDifficulty('normal')" id="diff-btn-normal" class="flex-1 text-xs py-1 rounded border-2 border-[var(--border-color)] bg-[var(--charcoal)] text-[var(--primary-invert)] font-bold">🙂 普通</button>
+                            <button onclick="setBotDifficulty('hard')"   id="diff-btn-hard"   class="flex-1 text-xs py-1 rounded border-2 border-[var(--border-color)] font-bold">😈 困難</button>
+                        </div>
+                        <p id="diff-desc" class="text-[9px] text-gray-500 text-center">偶爾走錯路，有時分心，正常水平</p>
+                    </div>
+
                     <button id="create-room-btn" onclick="createRoom()" class="custom-btn w-full py-2.5 font-bold text-xs uppercase rounded-lg">
                         🆕 建立對戰房間 (我是房主)
                     </button>
@@ -560,6 +571,10 @@
         let currentMultiLobbyData = null;
         // Bot 設定：記錄哪些 slot 由電腦控制 (僅 P1 host 端有效)
         let botSlots = { p2: false, p3: false, p4: false };
+        // Bot 難度：'easy' | 'normal' | 'hard'
+        let botDifficulty = 'normal';
+        // Bot 內部狀態（每條蛇各自的迷糊計時器）
+        let botState = { p2: { confusedTicks: 0 }, p3: { confusedTicks: 0 }, p4: { confusedTicks: 0 } };
 
         // 蛇的顏色設定
         const SNAKE_COLORS = {
@@ -580,6 +595,25 @@
                     btn.className = "flex-1 text-xs py-1 rounded border-2 border-[var(--border-color)] font-bold";
                 }
             });
+        }
+
+        // 難度選擇
+        function setBotDifficulty(level) {
+            botDifficulty = level;
+            const descs = {
+                easy:   '常常亂走，容易迷路，新手友善 😴',
+                normal: '偶爾走錯路，有時分心，正常水平 🙂',
+                hard:   '精準尋路，極少失誤，挑戰用 😈'
+            };
+            ['easy','normal','hard'].forEach(l => {
+                const btn = document.getElementById(`diff-btn-${l}`);
+                if (l === level) {
+                    btn.className = "flex-1 text-xs py-1 rounded border-2 border-[var(--border-color)] bg-[var(--charcoal)] text-[var(--primary-invert)] font-bold";
+                } else {
+                    btn.className = "flex-1 text-xs py-1 rounded border-2 border-[var(--border-color)] font-bold";
+                }
+            });
+            document.getElementById('diff-desc').textContent = descs[level];
         }
 
         // 切換某 slot 的 Bot 狀態（只有 P1 host 在大廳時可操作）
@@ -621,68 +655,145 @@
             const snake = data[role].snake;
             const head = snake[0];
             const food = data.food;
-            const COLS = canvas.width / GRID_SIZE;
-            const ROWS = canvas.height / GRID_SIZE;
 
-            // 建立障礙物集合（所有蛇身，不含自己蛇頭）
+            const wrap = (v, max) => ((v % max) + max) % max;
+            const toKey = (x, y) => `${x},${y}`;
+            const DIRS = [
+                { dx: GRID_SIZE,  dy: 0 },
+                { dx: -GRID_SIZE, dy: 0 },
+                { dx: 0,  dy: GRID_SIZE },
+                { dx: 0,  dy: -GRID_SIZE }
+            ];
+            const cur = playerDirections[role];
+
+            // ── 難度參數 ──────────────────────────────────────────
+            // randomMoveChance: 完全隨機亂走的機率
+            // confuseChance:    遇到岔路時選次優方向的機率
+            // blindChance:      忽略食物、只做 flood-fill 的機率
+            // lookAhead:        BFS 最大搜尋距離（限制視野）
+            const cfg = {
+                easy:   { randomMoveChance: 0.22, confuseChance: 0.55, blindChance: 0.30, lookAhead: 6  },
+                normal: { randomMoveChance: 0.06, confuseChance: 0.20, blindChance: 0.10, lookAhead: 18 },
+                hard:   { randomMoveChance: 0.00, confuseChance: 0.04, blindChance: 0.00, lookAhead: 999 }
+            }[botDifficulty];
+
+            // ── 迷糊計時器（連續幾 tick 繼續走錯） ────────────────
+            if (!botState[role]) botState[role] = { confusedTicks: 0, confusedDir: null };
+            const bs = botState[role];
+            if (bs.confusedTicks > 0) {
+                bs.confusedTicks--;
+                // 確認迷糊方向不會直接撞牆
+                if (bs.confusedDir) {
+                    const nx = wrap(head.x + bs.confusedDir.dx, canvas.width);
+                    const ny = wrap(head.y + bs.confusedDir.dy, canvas.height);
+                    const blocked = buildBlocked(role, data);
+                    if (!blocked.has(toKey(nx, ny))) return bs.confusedDir;
+                }
+            }
+
+            // ── 完全隨機亂走 ───────────────────────────────────────
+            if (Math.random() < cfg.randomMoveChance) {
+                const blocked = buildBlocked(role, data);
+                const safe = DIRS.filter(d => {
+                    if (d.dx === -cur.dx && d.dy === -cur.dy) return false;
+                    const nx = wrap(head.x + d.dx, canvas.width);
+                    const ny = wrap(head.y + d.dy, canvas.height);
+                    return !blocked.has(toKey(nx, ny));
+                });
+                if (safe.length > 0) {
+                    const picked = safe[Math.floor(Math.random() * safe.length)];
+                    // 讓迷糊持續 2-4 tick
+                    bs.confusedTicks = Math.floor(Math.random() * 3) + 1;
+                    bs.confusedDir = picked;
+                    return picked;
+                }
+            }
+
+            const blocked = buildBlocked(role, data);
+
+            // ── 盲目模式：不看食物，只選最大空間 ────────────────────
+            if (Math.random() < cfg.blindChance) {
+                return bestSafeDir(head, cur, blocked, DIRS, wrap);
+            }
+
+            // ── BFS 尋路（有視野限制）─────────────────────────────
+            const queue = [{ x: head.x, y: head.y, path: [], dist: 0 }];
+            const visited = new Set([toKey(head.x, head.y)]);
+            let bfsDirs = []; // 收集所有能到達食物的第一步
+            let bestDist = Infinity;
+
+            while (queue.length > 0) {
+                const cur2 = queue.shift();
+                if (cur2.dist > cfg.lookAhead) continue;
+                for (const d of DIRS) {
+                    const nx = wrap(cur2.x + d.dx, canvas.width);
+                    const ny = wrap(cur2.y + d.dy, canvas.height);
+                    const key = toKey(nx, ny);
+                    if (blocked.has(key) || visited.has(key)) continue;
+                    const newPath = cur2.path.length === 0 ? [d] : cur2.path;
+                    const newDist = cur2.dist + 1;
+                    if (nx === food.x && ny === food.y) {
+                        if (newDist <= bestDist) {
+                            bestDist = newDist;
+                            bfsDirs.push(newPath[0]);
+                        }
+                        continue;
+                    }
+                    visited.add(key);
+                    queue.push({ x: nx, y: ny, path: newPath, dist: newDist });
+                }
+            }
+
+            if (bfsDirs.length > 0) {
+                // ── 混淆：有機率選次優路（或隨機岔路）─────────────
+                if (Math.random() < cfg.confuseChance && bfsDirs.length >= 1) {
+                    // 找所有安全方向中排除最佳的
+                    const safe = DIRS.filter(d => {
+                        if (d.dx === -cur.dx && d.dy === -cur.dy) return false;
+                        const nx = wrap(head.x + d.dx, canvas.width);
+                        const ny = wrap(head.y + d.dy, canvas.height);
+                        return !blocked.has(toKey(nx, ny));
+                    });
+                    const suboptimal = safe.filter(d => d !== bfsDirs[0]);
+                    if (suboptimal.length > 0) {
+                        const picked = suboptimal[Math.floor(Math.random() * suboptimal.length)];
+                        bs.confusedTicks = botDifficulty === 'easy' ? Math.floor(Math.random()*4)+2 : 1;
+                        bs.confusedDir = picked;
+                        return picked;
+                    }
+                }
+                return bfsDirs[0];
+            }
+
+            // ── BFS 找不到路：flood-fill 選最大空間 ─────────────────
+            return bestSafeDir(head, cur, blocked, DIRS, wrap);
+        }
+
+        // 輔助：建立障礙物 Set
+        function buildBlocked(role, data) {
             const blocked = new Set();
             ['p1','p2','p3','p4'].forEach(r => {
                 if (!data[r] || !data[r].snake) return;
                 data[r].snake.forEach((seg, idx) => {
-                    // 自己蛇尾這格下一 tick 會移走，略過（讓 Bot 更靈活）
                     if (r === role && idx === data[r].snake.length - 1) return;
                     blocked.add(`${seg.x},${seg.y}`);
                 });
             });
+            return blocked;
+        }
 
-            // BFS 找從 head 到 food 的最短路徑
-            const toKey = (x, y) => `${x},${y}`;
-            const wrap = (v, max) => ((v % max) + max) % max;
-            const DIRS = [
-                { dx: GRID_SIZE, dy: 0 },
-                { dx: -GRID_SIZE, dy: 0 },
-                { dx: 0, dy: GRID_SIZE },
-                { dx: 0, dy: -GRID_SIZE }
-            ];
-
-            const queue = [{ x: head.x, y: head.y, path: [] }];
-            const visited = new Set([toKey(head.x, head.y)]);
-            let bestDir = null;
-
-            bfsLoop:
-            while (queue.length > 0) {
-                const cur = queue.shift();
-                for (const d of DIRS) {
-                    const nx = wrap(cur.x + d.dx, canvas.width);
-                    const ny = wrap(cur.y + d.dy, canvas.height);
-                    const key = toKey(nx, ny);
-                    if (blocked.has(key) || visited.has(key)) continue;
-                    const newPath = [...cur.path, d];
-                    if (nx === food.x && ny === food.y) {
-                        bestDir = newPath[0];
-                        break bfsLoop;
-                    }
-                    visited.add(key);
-                    queue.push({ x: nx, y: ny, path: newPath });
-                }
-            }
-
-            if (bestDir) return bestDir;
-
-            // BFS 找不到路：選一個不會立刻撞死的方向（Flood Fill 選最大空間）
-            const cur = playerDirections[role];
+        // 輔助：flood-fill 選最大安全方向
+        function bestSafeDir(head, cur, blocked, DIRS, wrap) {
             let bestSafe = null, bestSpace = -1;
             for (const d of DIRS) {
-                // 禁止180度反向
                 if (d.dx === -cur.dx && d.dy === -cur.dy) continue;
                 const nx = wrap(head.x + d.dx, canvas.width);
                 const ny = wrap(head.y + d.dy, canvas.height);
-                if (blocked.has(toKey(nx, ny))) continue;
-                // 簡易 flood fill 計算可到達格子數
-                const space = floodFillCount(nx, ny, blocked, COLS * ROWS);
+                if (blocked.has(`${nx},${ny}`)) continue;
+                const space = floodFillCount(nx, ny, blocked, 400);
                 if (space > bestSpace) { bestSpace = space; bestSafe = d; }
             }
-            return bestSafe || cur; // 實在無路可走就維持原方向
+            return bestSafe || cur;
         }
 
         function floodFillCount(startX, startY, blocked, maxCells) {
@@ -1282,6 +1393,7 @@
             playerRole = null;
             maxPlayers = 2;
             botSlots = { p2: false, p3: false, p4: false };
+            botState = { p2: { confusedTicks: 0 }, p3: { confusedTicks: 0 }, p4: { confusedTicks: 0 } };
             setPlayerCount(2);
 
             try {
@@ -1359,6 +1471,7 @@
             };
 
             currentMultiLobbyData = JSON.parse(JSON.stringify(initialState));
+            botState = { p2: { confusedTicks: 0 }, p3: { confusedTicks: 0 }, p4: { confusedTicks: 0 } };
             updateScoreboardVisibility();
             // 只廣播給真人訪客（Bot 不需要）
             window.peerModule.broadcastToGuests({ type: 'start', payload: initialState });
