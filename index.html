@@ -278,14 +278,38 @@
         <!-- 頂部：標題與主題切換 -->
         <header class="w-full flex justify-between items-center mb-2">
             <h1 class="text-2xl font-black tracking-wider uppercase">ULTIMATE SNAKE</h1>
-            
-            <!-- 主題切換器 -->
-            <div class="flex gap-1 bg-black/5 p-1 rounded-lg">
-                <button onclick="setTheme('light')" class="w-6 h-6 rounded-full bg-[#F6F5F2] border border-gray-400" title="暖陽米白"></button>
-                <button onclick="setTheme('dark')" class="w-6 h-6 rounded-full bg-[#1A1A1A] border border-gray-600" title="極客極黑"></button>
-                <button onclick="setTheme('gameboy')" class="w-6 h-6 rounded-full bg-[#8BAC0F] border border-[#0F380F]" title="復古掌機"></button>
+            <div class="flex gap-1 items-center">
+                <!-- 排行榜按鈕 -->
+                <button onclick="toggleLeaderboard()" style="font-size:10px;font-weight:700;border:2px solid var(--border-color);padding:2px 7px;border-radius:6px;background:transparent;cursor:pointer;">🏆</button>
+                <!-- 主題切換器 -->
+                <div class="flex gap-1 bg-black/5 p-1 rounded-lg">
+                    <button onclick="setTheme('light')" class="w-6 h-6 rounded-full bg-[#F6F5F2] border border-gray-400" title="暖陽米白"></button>
+                    <button onclick="setTheme('dark')" class="w-6 h-6 rounded-full bg-[#1A1A1A] border border-gray-600" title="極客極黑"></button>
+                    <button onclick="setTheme('gameboy')" class="w-6 h-6 rounded-full bg-[#8BAC0F] border border-[#0F380F]" title="復古掌機"></button>
+                </div>
             </div>
         </header>
+
+        <!-- 玩家名稱輸入 -->
+        <div class="w-full flex gap-2 mb-2 items-center">
+            <span style="font-size:11px;font-weight:700;white-space:nowrap;">👤 玩家名稱：</span>
+            <input id="player-name-input" type="text" maxlength="12" placeholder="輸入名稱（最多12字）"
+                style="flex:1;border:2px solid var(--border-color);background:transparent;padding:3px 8px;font-size:11px;font-weight:700;border-radius:6px;outline:none;color:var(--charcoal);"
+                oninput="savePlayerName(this.value)">
+        </div>
+
+        <!-- 排行榜面板 -->
+        <div id="leaderboard-panel" style="display:none;width:100%;border:2px solid var(--border-color);border-radius:8px;background:var(--bg-color);margin-bottom:8px;overflow:hidden;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:rgba(0,0,0,0.07);border-bottom:2px solid var(--border-color);">
+                <span style="font-size:12px;font-weight:900;">🏆 排行榜 TOP 10</span>
+                <div style="display:flex;gap:6px;">
+                    <button onclick="switchLeaderboardTab('single')" id="lb-tab-single" style="font-size:10px;font-weight:700;border:1px solid var(--border-color);padding:2px 6px;border-radius:4px;background:var(--charcoal);color:var(--primary-invert);cursor:pointer;">單人</button>
+                    <button onclick="switchLeaderboardTab('multi')"  id="lb-tab-multi"  style="font-size:10px;font-weight:700;border:1px solid var(--border-color);padding:2px 6px;border-radius:4px;background:transparent;cursor:pointer;">對戰</button>
+                    <button onclick="clearLeaderboard()" style="font-size:10px;font-weight:700;border:1px solid #EF4444;color:#EF4444;padding:2px 6px;border-radius:4px;background:transparent;cursor:pointer;">清除</button>
+                </div>
+            </div>
+            <div id="leaderboard-list" style="padding:6px 10px;max-height:180px;overflow-y:auto;"></div>
+        </div>
 
         <!-- 模式切換與功能列 -->
         <div class="w-full flex justify-between items-center mb-3 text-xs font-bold gap-2">
@@ -495,8 +519,12 @@
                 <!-- 單人結束數據 -->
                 <div id="single-over-panel" class="hidden">
                     <div class="text-lg font-bold mb-1">最後得分：<span id="final-score" class="text-2xl">0</span></div>
-                    <div id="gameover-reason" class="text-xs opacity-75 mb-6 font-semibold">你撞到了自己！</div>
-                    <button onclick="startGame()" class="custom-btn px-8 py-3 font-bold text-sm tracking-widest uppercase rounded-lg">再應戰一次</button>
+                    <div id="gameover-reason" class="text-xs opacity-75 mb-2 font-semibold">你撞到了自己！</div>
+                    <div id="new-record-badge" style="display:none;font-size:11px;font-weight:900;color:#D97706;margin-bottom:8px;">🎉 新紀錄！已記入排行榜！</div>
+                    <div style="display:flex;gap:8px;margin-top:8px;">
+                        <button onclick="startGame()" class="custom-btn px-8 py-3 font-bold text-sm tracking-widest uppercase rounded-lg">再應戰</button>
+                        <button onclick="showLeaderboardFromGameover()" style="border:2px solid var(--border-color);padding:10px 16px;font-size:12px;font-weight:700;border-radius:8px;background:transparent;cursor:pointer;">🏆 排行榜</button>
+                    </div>
                 </div>
 
                 <!-- 多人對戰結束數據 -->
@@ -525,6 +553,12 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- 遊戲中圖例說明（canvas 下方，遊戲進行時顯示） -->
+        <div id="legend-panel" style="display:none;width:100%;margin-top:6px;border:2px solid var(--border-color);border-radius:8px;padding:6px 10px;background:rgba(0,0,0,0.04);">
+            <div style="font-size:10px;font-weight:900;margin-bottom:4px;opacity:0.6;">📖 道具圖例</div>
+            <div id="legend-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;"></div>
         </div>
 
         <!-- 戰術喊話面板 (只在多人模式中顯示) -->
@@ -1104,6 +1138,9 @@
             isGameOver = false;
             isGameStarted = true;
             currentSpeed = initialSpeed;
+            singleWallActive = false;
+            singleWallTimer = 0;
+            foods = [];
 
             const startX = Math.floor(TILE_COUNT / 2) * GRID_SIZE;
             const startY = Math.floor(TILE_COUNT / 2) * GRID_SIZE;
@@ -1113,16 +1150,14 @@
                 { x: startX - (GRID_SIZE * 2), y: startY }
             ];
 
-            dx = GRID_SIZE;
-            dy = 0;
+            dx = GRID_SIZE; dy = 0;
             nextDirection = { dx: GRID_SIZE, dy: 0 };
             obstacles = [];
 
-            if (singleMode === 'SURVIVAL') {
-                generateObstacles();
-            }
+            if (singleMode === 'SURVIVAL') generateObstacles();
 
             generateFood();
+            showLegendPanel(true);
 
             if (gameInterval) clearInterval(gameInterval);
             gameInterval = setInterval(gameLoop, currentSpeed);
@@ -1149,7 +1184,6 @@
             if (singleMode === 'WRAP') {
                 if (newX < 0) newX = canvas.width - GRID_SIZE;
                 else if (newX >= canvas.width) newX = 0;
-
                 if (newY < 0) newY = canvas.height - GRID_SIZE;
                 else if (newY >= canvas.height) newY = 0;
             }
@@ -1157,28 +1191,50 @@
             const head = { x: newX, y: newY };
             snake.unshift(head);
 
-            if (head.x === food.x && head.y === food.y) {
-                eatFood();
+            // 檢查是否吃到任一食物
+            const eatIdx = foods.findIndex(f => f.x === head.x && f.y === head.y);
+            if (eatIdx !== -1) {
+                const eaten = foods.splice(eatIdx, 1)[0];
+                eatFood(eaten);
+                spawnOneFood(); // 補充一個新食物，維持 1-3 個
+                updateLegendPanel();
             } else {
                 snake.pop();
             }
         }
 
-        function eatFood() {
-            if (food.type === 'NORMAL') {
+        // 單人模式牆壁狀態
+        let singleWallActive = false, singleWallTimer = 0;
+
+        function eatFood(eaten) {
+            const ft = eaten ? eaten.type : 'NORMAL';
+
+            if (ft === 'NORMAL') {
                 score += 10;
                 playSound('eat');
-            } else if (food.type === 'GOLD') {
+            } else if (ft === 'GOLD') {
                 score += 30;
                 playSound('special');
-            } else if (food.type === 'SHRINK') {
+            } else if (ft === 'SHRINK') {
                 score += 5;
                 playSound('special');
-                if (snake.length > 5) {
-                    snake.pop(); snake.pop();
-                } else if (snake.length > 4) {
-                    snake.pop();
+                const removeCount = Math.min(3, snake.length - 1);
+                for (let i = 0; i < removeCount; i++) snake.pop();
+            } else if (ft === 'WALL') {
+                score += 15;
+                singleWallActive = true;
+                singleWallTimer = Math.round(5000 / currentSpeed);
+                playSound('special');
+                // 暫時切換到 WALL 碰撞模式（遊戲會在 checkCollision 偵測邊界）
+            } else if (ft === 'SWAP') {
+                // 單人模式：互換沒有對手，改為蛇身隨機重排（混亂效果）
+                score += 20;
+                if (snake.length > 3) {
+                    const head = snake[0];
+                    const rest = snake.slice(1).sort(() => Math.random() - 0.5);
+                    snake = [head, ...rest];
                 }
+                playSound('special');
             }
 
             scoreEl.textContent = score;
@@ -1187,37 +1243,36 @@
                 currentSpeed = Math.max(35, currentSpeed - 3);
                 clearInterval(gameInterval);
                 gameInterval = setInterval(gameLoop, currentSpeed);
-
-                if (Math.random() < 0.4) {
-                    addSingleObstacle();
-                }
+                if (Math.random() < 0.4) addSingleObstacle();
             }
-
-            generateFood();
         }
 
         function checkCollision() {
             const head = snake[0];
 
-            if (singleMode === 'WALL' || singleMode === 'SURVIVAL') {
+            // 牆壁倒計時
+            if (singleWallActive) {
+                singleWallTimer--;
+                if (singleWallTimer <= 0) singleWallActive = false;
+            }
+
+            // 撞牆判定：WALL/SURVIVAL 模式，或 singleWallActive 啟動中
+            const wallMode = singleMode === 'WALL' || singleMode === 'SURVIVAL' || singleWallActive;
+            if (wallMode) {
                 if (head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height) {
-                    endGame("你撞上了冰冷的邊界鋼鐵牆！");
+                    endGame("你撞上了邊界牆！");
                     return;
                 }
             }
 
             if (singleMode === 'SURVIVAL') {
                 const hitObstacle = obstacles.some(obs => obs.x === head.x && obs.y === head.y);
-                if (hitObstacle) {
-                    endGame("你不小心一頭撞上了迷宮的岩石！");
-                    return;
-                }
+                if (hitObstacle) { endGame("你不小心一頭撞上了迷宮的岩石！"); return; }
             }
 
             for (let i = 1; i < snake.length; i++) {
                 if (head.x === snake[i].x && head.y === snake[i].y) {
-                    endGame("你咬到了自己長長的身體！");
-                    return;
+                    endGame("你咬到了自己長長的身體！"); return;
                 }
             }
         }
@@ -1226,6 +1281,7 @@
             isGameOver = true;
             clearInterval(gameInterval);
             playSound('die');
+            showLegendPanel(false);
 
             if (score > highscore) {
                 highscore = score;
@@ -1233,33 +1289,59 @@
                 highscoreEl.textContent = highscore;
             }
 
+            // 排行榜記錄
+            const isNew = saveToLeaderboard('single', score);
+            const badge = document.getElementById('new-record-badge');
+            if (badge) badge.style.display = isNew ? 'block' : 'none';
+
             finalScoreEl.textContent = score;
             gameoverReasonEl.textContent = reason || "你不小心死掉了！";
-            
+
             singleOverPanel.classList.remove('hidden');
             multiOverPanel.classList.add('hidden');
             gameoverOverlay.classList.remove('hidden');
         }
 
+        // === 多目標物系統 (同時 1-3 個) ===
+        let foods = []; // 取代舊的 food 單一物件
+
+        const FOOD_TYPES = [
+            { type: 'NORMAL', weight: 55, label: '普通果',  desc: '吃掉得 +10 分，蛇身長大' },
+            { type: 'GOLD',   weight: 20, label: '黃金果',  desc: '吃掉得 +30 分，蛇身長大' },
+            { type: 'SHRINK', weight: 10, label: '✂ 縮短藥', desc: '吃掉自身縮短 3 格' },
+            { type: 'WALL',   weight: 8,  label: '🧱 牆壁符', desc: '啟動邊界牆 5 秒，撞牆即死' },
+            { type: 'SWAP',   weight: 7,  label: '⇄ 互換符', desc: '所有蛇身隨機互換位置' },
+        ];
+
+        function pickFoodType() {
+            const total = FOOD_TYPES.reduce((s, t) => s + t.weight, 0);
+            let r = Math.random() * total;
+            for (const t of FOOD_TYPES) { r -= t.weight; if (r <= 0) return t.type; }
+            return 'NORMAL';
+        }
+
         function generateFood() {
-            const rand = Math.random();
-            let foodType = 'NORMAL';
-            if (rand < 0.15) {
-                foodType = 'GOLD';
-            } else if (rand < 0.25) {
-                foodType = 'SHRINK';
+            // 目標數：1 到 3，隨機
+            const targetCount = Math.floor(Math.random() * 3) + 1;
+            foods = [];
+            for (let attempt = 0; attempt < targetCount; attempt++) {
+                spawnOneFood();
             }
+            updateLegendPanel();
+        }
 
-            while (true) {
-                const foodX = Math.floor(Math.random() * TILE_COUNT) * GRID_SIZE;
-                const foodY = Math.floor(Math.random() * TILE_COUNT) * GRID_SIZE;
-
-                const onSnake = snake.some(seg => seg.x === foodX && seg.y === foodY);
-                const onObstacle = obstacles.some(obs => obs.x === foodX && obs.y === foodY);
-
-                if (!onSnake && !onObstacle) {
-                    food = { x: foodX, y: foodY, type: foodType };
-                    break;
+        function spawnOneFood() {
+            const type = pickFoodType();
+            let tries = 0;
+            while (tries++ < 200) {
+                const fx = Math.floor(Math.random() * TILE_COUNT) * GRID_SIZE;
+                const fy = Math.floor(Math.random() * TILE_COUNT) * GRID_SIZE;
+                const onSnake = snake.some(s => s.x === fx && s.y === fy);
+                const onObs   = obstacles.some(o => o.x === fx && o.y === fy);
+                const onFood  = foods.some(f => f.x === fx && f.y === fy);
+                if (!onSnake && !onObs && !onFood) {
+                    foods.push({ x: fx, y: fy, type });
+                    return;
                 }
             }
         }
@@ -1900,6 +1982,7 @@
 
             if (multiGameInterval) clearInterval(multiGameInterval);
             multiGameInterval = setInterval(localMultiplayerTick, 150);
+            showLegendPanel(true);
         }
 
         function localMultiplayerTick() {
@@ -2022,9 +2105,13 @@
             if (isGameOver) return;
             isGameOver = true;
             clearInterval(multiGameInterval);
+            showLegendPanel(false);
 
             const roles = ['p1','p2','p3','p4'];
             const winner = data.winner;
+
+            // 存入多人排行榜
+            try { saveMultiResult(winner, data); } catch(e) {}
 
             let winnerText, reasonText;
             if (winner === 'draw' || !winner) {
@@ -2166,78 +2253,9 @@
                 ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
             }
 
-            // 道具繪製
+            // 道具繪製（使用統一函數）
             const f = data.food;
-            if (f) {
-                const cx = f.x + GRID_SIZE / 2;
-                const cy = f.y + GRID_SIZE / 2;
-                const r = GRID_SIZE / 2 - 2;
-                ctx.save();
-                ctx.translate(cx, cy);
-
-                if (f.type === 'NORMAL') {
-                    // ● 黑色圓點
-                    ctx.fillStyle = '#1a1a1a';
-                    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
-                    ctx.fillStyle = '#555';
-                    ctx.beginPath(); ctx.arc(-2, -2, r * 0.35, 0, Math.PI * 2); ctx.fill();
-
-                } else if (f.type === 'GOLD') {
-                    // ★ 金色星星
-                    ctx.fillStyle = '#F59E0B';
-                    ctx.strokeStyle = '#D97706';
-                    ctx.lineWidth = 1.5;
-                    ctx.beginPath();
-                    for (let i = 0; i < 5; i++) {
-                        const a = (i * 4 * Math.PI / 5) - Math.PI / 2;
-                        const b = ((i * 4 + 2) * Math.PI / 5) - Math.PI / 2;
-                        if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
-                        else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-                        ctx.lineTo(Math.cos(b) * r * 0.4, Math.sin(b) * r * 0.4);
-                    }
-                    ctx.closePath(); ctx.fill(); ctx.stroke();
-
-                } else if (f.type === 'SHRINK') {
-                    // ✂ 剪刀形（自身縮短）- 紅底白剪刀
-                    ctx.fillStyle = '#EF4444';
-                    ctx.strokeStyle = '#B91C1C';
-                    ctx.lineWidth = 1.5;
-                    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-                    ctx.fillStyle = 'white';
-                    ctx.font = `bold ${GRID_SIZE - 6}px serif`;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText('✂', 0, 1);
-
-                } else if (f.type === 'WALL') {
-                    // 🧱 磚塊（出現牆壁）- 橘底磚紋
-                    ctx.fillStyle = '#92400E';
-                    ctx.strokeStyle = '#78350F';
-                    ctx.lineWidth = 1.5;
-                    ctx.beginPath(); ctx.roundRect(-r, -r, r*2, r*2, 3); ctx.fill(); ctx.stroke();
-                    // 磚紋
-                    ctx.strokeStyle = '#78350F';
-                    ctx.lineWidth = 1;
-                    ctx.beginPath(); ctx.moveTo(-r, 0); ctx.lineTo(r, 0); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(0, -r); ctx.lineTo(0, 0); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(-r/2, 0); ctx.lineTo(-r/2, r); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(r/2, -r); ctx.lineTo(r/2, 0); ctx.stroke();
-
-                } else if (f.type === 'SWAP') {
-                    // 🔀 互換（雙箭頭）- 紫底
-                    ctx.fillStyle = '#7C3AED';
-                    ctx.strokeStyle = '#5B21B6';
-                    ctx.lineWidth = 1.5;
-                    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-                    ctx.fillStyle = 'white';
-                    ctx.font = `bold ${GRID_SIZE - 7}px sans-serif`;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText('⇄', 0, 1);
-                }
-
-                ctx.restore();
-            }
+            if (f) drawFoodItem(ctx, f);
 
             // 蛇身
             const roles = ['p1','p2','p3','p4'];
@@ -2387,9 +2405,77 @@
         }
 
         // 繪製單人基礎網格
+        // 統一食物繪製（單人 + 多人共用）
+        function drawFoodItem(ctx, f) {
+            const cx = f.x + GRID_SIZE / 2;
+            const cy = f.y + GRID_SIZE / 2;
+            const r  = GRID_SIZE / 2 - 2;
+            ctx.save();
+            ctx.translate(cx, cy);
+
+            if (f.type === 'NORMAL') {
+                ctx.fillStyle = '#1a1a1a'; ctx.strokeStyle = '#555'; ctx.lineWidth = 1.5;
+                ctx.fillRect(-r+1, -r+1, r*2-2, r*2-2);
+                ctx.strokeRect(-r+1, -r+1, r*2-2, r*2-2);
+                ctx.fillStyle = '#777';
+                ctx.fillRect(-r+4, -r+4, r*0.7, r*0.7);
+            } else if (f.type === 'GOLD') {
+                ctx.fillStyle = '#F59E0B'; ctx.strokeStyle = '#D97706'; ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                for (let i = 0; i < 5; i++) {
+                    const a = (i * 4 * Math.PI / 5) - Math.PI / 2;
+                    const b = ((i * 4 + 2) * Math.PI / 5) - Math.PI / 2;
+                    if (i === 0) ctx.moveTo(Math.cos(a)*r, Math.sin(a)*r);
+                    else ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r);
+                    ctx.lineTo(Math.cos(b)*r*0.4, Math.sin(b)*r*0.4);
+                }
+                ctx.closePath(); ctx.fill(); ctx.stroke();
+            } else if (f.type === 'SHRINK') {
+                ctx.fillStyle = '#EF4444'; ctx.strokeStyle = '#B91C1C'; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                ctx.fillStyle = 'white'; ctx.font = `bold ${GRID_SIZE-6}px serif`;
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText('✂', 0, 1);
+            } else if (f.type === 'WALL') {
+                ctx.fillStyle = '#92400E'; ctx.strokeStyle = '#78350F'; ctx.lineWidth = 1.5;
+                if (ctx.roundRect) ctx.roundRect(-r,-r,r*2,r*2,3); else { ctx.rect(-r,-r,r*2,r*2); }
+                ctx.fill(); ctx.stroke();
+                ctx.strokeStyle = '#78350F'; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.moveTo(-r,0); ctx.lineTo(r,0); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0,-r); ctx.lineTo(0,0); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(-r/2,0); ctx.lineTo(-r/2,r); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(r/2,-r); ctx.lineTo(r/2,0); ctx.stroke();
+            } else if (f.type === 'SWAP') {
+                ctx.fillStyle = '#7C3AED'; ctx.strokeStyle = '#5B21B6'; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                ctx.fillStyle = 'white'; ctx.font = `bold ${GRID_SIZE-7}px sans-serif`;
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText('⇄', 0, 1);
+            }
+            ctx.restore();
+        }
+
         function draw() {
             ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid-bg').trim();
             ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 牆壁效果（singleWallActive 或 WALL/SURVIVAL 模式）
+            const wallMode = singleMode === 'WALL' || singleMode === 'SURVIVAL' || singleWallActive;
+            if (singleWallActive) {
+                const alpha = 0.12 + 0.22 * Math.abs(Math.sin(Date.now() / 130));
+                ctx.fillStyle = `rgba(220,38,38,${alpha})`;
+                const bw = GRID_SIZE;
+                ctx.fillRect(0, 0, canvas.width, bw);
+                ctx.fillRect(0, canvas.height - bw, canvas.width, bw);
+                ctx.fillRect(0, 0, bw, canvas.height);
+                ctx.fillRect(canvas.width - bw, 0, bw, canvas.height);
+                ctx.strokeStyle = '#DC2626'; ctx.lineWidth = 4;
+                ctx.strokeRect(2, 2, canvas.width-4, canvas.height-4);
+                const secs = Math.ceil(singleWallTimer * currentSpeed / 1000);
+                ctx.fillStyle = 'rgba(220,38,38,0.85)';
+                ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
+                ctx.fillText(`🧱 牆壁 ${secs}s`, canvas.width/2, 14);
+            }
 
             ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid-line').trim();
             ctx.lineWidth = 1;
@@ -2400,43 +2486,19 @@
 
             if (!isGameStarted) return;
 
-            // 畫障礙物 (岩石)
+            // 障礙物
             ctx.fillStyle = '#6B7280';
             ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--charcoal').trim();
             ctx.lineWidth = 2;
             obstacles.forEach(obs => {
-                ctx.fillRect(obs.x + 2, obs.y + 2, GRID_SIZE - 4, GRID_SIZE - 4);
-                ctx.strokeRect(obs.x + 2, obs.y + 2, GRID_SIZE - 4, GRID_SIZE - 4);
+                ctx.fillRect(obs.x+2, obs.y+2, GRID_SIZE-4, GRID_SIZE-4);
+                ctx.strokeRect(obs.x+2, obs.y+2, GRID_SIZE-4, GRID_SIZE-4);
             });
 
-            // 畫食物
-            const x = food.x;
-            const y = food.y;
-            ctx.lineWidth = 2;
+            // 所有食物（1-3 個）
+            foods.forEach(f => drawFoodItem(ctx, f));
 
-            if (food.type === 'NORMAL') {
-                ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--charcoal').trim();
-                ctx.strokeStyle = ctx.fillStyle;
-                ctx.strokeRect(x + 4, y + 4, GRID_SIZE - 8, GRID_SIZE - 8);
-                ctx.fillRect(x + 7, y + 7, GRID_SIZE - 14, GRID_SIZE - 14);
-            } else if (food.type === 'GOLD') {
-                ctx.fillStyle = '#F59E0B';
-                ctx.strokeStyle = '#D97706';
-                ctx.beginPath();
-                ctx.arc(x + GRID_SIZE / 2, y + GRID_SIZE / 2, GRID_SIZE / 2 - 2, 0, Math.PI * 2);
-                ctx.fill(); ctx.stroke();
-            } else if (food.type === 'SHRINK') {
-                ctx.fillStyle = '#3B82F6';
-                ctx.strokeStyle = '#1D4ED8';
-                ctx.beginPath();
-                ctx.moveTo(x + GRID_SIZE / 2, y + 2);
-                ctx.lineTo(x + GRID_SIZE - 2, y + GRID_SIZE - 2);
-                ctx.lineTo(x + 2, y + GRID_SIZE - 2);
-                ctx.closePath();
-                ctx.fill(); ctx.stroke();
-            }
-
-            // 畫蛇
+            // 蛇
             const charcoalColor = getComputedStyle(document.documentElement).getPropertyValue('--charcoal').trim();
             const invertBg = getComputedStyle(document.documentElement).getPropertyValue('--primary-invert').trim();
 
@@ -2445,36 +2507,201 @@
                 ctx.fillStyle = charcoalColor;
                 ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid-bg').trim();
                 ctx.lineWidth = 2;
-
                 if (isHead) {
                     ctx.fillRect(segment.x, segment.y, GRID_SIZE, GRID_SIZE);
                     ctx.strokeRect(segment.x, segment.y, GRID_SIZE, GRID_SIZE);
-
                     ctx.fillStyle = invertBg;
-                    const eyeSize = 4;
-                    const offset = 4;
-
+                    const eyeSize = 4, offset = 4;
                     if (dx > 0) {
-                        ctx.fillRect(segment.x + GRID_SIZE - offset - eyeSize, segment.y + offset, eyeSize, eyeSize);
-                        ctx.fillRect(segment.x + GRID_SIZE - offset - eyeSize, segment.y + GRID_SIZE - offset - eyeSize, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x+GRID_SIZE-offset-eyeSize, segment.y+offset, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x+GRID_SIZE-offset-eyeSize, segment.y+GRID_SIZE-offset-eyeSize, eyeSize, eyeSize);
                     } else if (dx < 0) {
-                        ctx.fillRect(segment.x + offset, segment.y + offset, eyeSize, eyeSize);
-                        ctx.fillRect(segment.x + offset, segment.y + GRID_SIZE - offset - eyeSize, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x+offset, segment.y+offset, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x+offset, segment.y+GRID_SIZE-offset-eyeSize, eyeSize, eyeSize);
                     } else if (dy > 0) {
-                        ctx.fillRect(segment.x + offset, segment.y + GRID_SIZE - offset - eyeSize, eyeSize, eyeSize);
-                        ctx.fillRect(segment.x + GRID_SIZE - offset - eyeSize, segment.y + GRID_SIZE - offset - eyeSize, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x+offset, segment.y+GRID_SIZE-offset-eyeSize, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x+GRID_SIZE-offset-eyeSize, segment.y+GRID_SIZE-offset-eyeSize, eyeSize, eyeSize);
                     } else if (dy < 0) {
-                        ctx.fillRect(segment.x + offset, segment.y + offset, eyeSize, eyeSize);
-                        ctx.fillRect(segment.x + GRID_SIZE - offset - eyeSize, segment.y + offset, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x+offset, segment.y+offset, eyeSize, eyeSize);
+                        ctx.fillRect(segment.x+GRID_SIZE-offset-eyeSize, segment.y+offset, eyeSize, eyeSize);
                     }
                 } else {
                     const pad = 1;
-                    ctx.fillRect(segment.x + pad, segment.y + pad, GRID_SIZE - (pad * 2), GRID_SIZE - (pad * 2));
-                    ctx.strokeRect(segment.x + pad, segment.y + pad, GRID_SIZE - (pad * 2), GRID_SIZE - (pad * 2));
+                    ctx.fillRect(segment.x+pad, segment.y+pad, GRID_SIZE-pad*2, GRID_SIZE-pad*2);
+                    ctx.strokeRect(segment.x+pad, segment.y+pad, GRID_SIZE-pad*2, GRID_SIZE-pad*2);
                 }
             });
         }
 
+        // =====================================================
+        // 排行榜系統
+        // =====================================================
+        const LB_KEY_SINGLE = 'snake_lb_single';
+        const LB_KEY_MULTI  = 'snake_lb_multi';
+        let lbTab = 'single';
+
+        function getPlayerName() {
+            return (document.getElementById('player-name-input').value.trim()) || '無名玩家';
+        }
+
+        function savePlayerName(val) {
+            localStorage.setItem('snake_player_name', val.trim());
+        }
+
+        function loadPlayerName() {
+            const n = localStorage.getItem('snake_player_name') || '';
+            document.getElementById('player-name-input').value = n;
+        }
+
+        function getLeaderboard(key) {
+            try { return JSON.parse(localStorage.getItem(key)) || []; } catch { return []; }
+        }
+
+        function saveToLeaderboard(mode, score, extra) {
+            const key = mode === 'single' ? LB_KEY_SINGLE : LB_KEY_MULTI;
+            const lb = getLeaderboard(key);
+            const name = getPlayerName();
+            const entry = {
+                name,
+                score,
+                mode: extra || singleMode,
+                date: new Date().toLocaleDateString('zh-TW'),
+                time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })
+            };
+            lb.push(entry);
+            lb.sort((a, b) => b.score - a.score);
+            const trimmed = lb.slice(0, 10);
+            localStorage.setItem(key, JSON.stringify(trimmed));
+            // 回傳是否進入 top 10
+            return trimmed.some(e => e.name === name && e.score === score && e.date === entry.date);
+        }
+
+        function renderLeaderboard() {
+            const key = lbTab === 'single' ? LB_KEY_SINGLE : LB_KEY_MULTI;
+            const lb = getLeaderboard(key);
+            const el = document.getElementById('leaderboard-list');
+            if (!lb.length) {
+                el.innerHTML = '<div style="text-align:center;font-size:11px;opacity:0.5;padding:12px;">尚無紀錄，快去破紀錄！</div>';
+                return;
+            }
+            const medals = ['🥇','🥈','🥉'];
+            el.innerHTML = lb.map((e, i) => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(0,0,0,0.07);font-size:11px;">
+                    <span style="font-weight:900;width:22px;text-align:center;">${medals[i] || (i+1)}</span>
+                    <span style="flex:1;font-weight:700;margin-left:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.name}</span>
+                    <span style="font-weight:900;color:#D97706;margin:0 6px;">${e.score}</span>
+                    <span style="font-size:9px;opacity:0.5;">${e.date} ${e.time}</span>
+                </div>
+            `).join('');
+        }
+
+        function toggleLeaderboard() {
+            const el = document.getElementById('leaderboard-panel');
+            const showing = el.style.display !== 'none';
+            el.style.display = showing ? 'none' : 'block';
+            if (!showing) { renderLeaderboard(); }
+        }
+
+        function switchLeaderboardTab(tab) {
+            lbTab = tab;
+            ['single','multi'].forEach(t => {
+                const btn = document.getElementById(`lb-tab-${t}`);
+                if (t === tab) {
+                    btn.style.background = 'var(--charcoal)';
+                    btn.style.color = 'var(--primary-invert)';
+                } else {
+                    btn.style.background = 'transparent';
+                    btn.style.color = 'var(--charcoal)';
+                }
+            });
+            renderLeaderboard();
+        }
+
+        function clearLeaderboard() {
+            if (!confirm('確定要清除所有排行榜紀錄嗎？')) return;
+            localStorage.removeItem(LB_KEY_SINGLE);
+            localStorage.removeItem(LB_KEY_MULTI);
+            renderLeaderboard();
+        }
+
+        function showLeaderboardFromGameover() {
+            gameoverOverlay.classList.add('hidden');
+            const el = document.getElementById('leaderboard-panel');
+            el.style.display = 'block';
+            lbTab = 'single';
+            switchLeaderboardTab('single');
+        }
+
+        // 多人對戰結算也存入排行榜
+        function saveMultiResult(winnerRole, data) {
+            const myScore = data[playerRole] ? data[playerRole].score : 0;
+            const isWinner = winnerRole === playerRole;
+            const name = getPlayerName();
+            const key = LB_KEY_MULTI;
+            const lb = getLeaderboard(key);
+            lb.push({
+                name: name + (isWinner ? ' 🏆' : ''),
+                score: myScore,
+                mode: `${data.maxPlayers}P對戰`,
+                date: new Date().toLocaleDateString('zh-TW'),
+                time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })
+            });
+            lb.sort((a, b) => b.score - a.score);
+            localStorage.setItem(key, JSON.stringify(lb.slice(0, 10)));
+        }
+
+        // =====================================================
+        // 圖例面板
+        // =====================================================
+        const LEGEND_DEFS = [
+            { type: 'NORMAL', icon: '▪',  color: '#1a1a1a', label: '普通果',  desc: '+10 分' },
+            { type: 'GOLD',   icon: '★',  color: '#F59E0B', label: '黃金果',  desc: '+30 分' },
+            { type: 'SHRINK', icon: '✂',  color: '#EF4444', label: '縮短藥',  desc: '自身 -3 格' },
+            { type: 'WALL',   icon: '🧱', color: '#92400E', label: '牆壁符',  desc: '出現牆 5s' },
+            { type: 'SWAP',   icon: '⇄',  color: '#7C3AED', label: '互換符',  desc: '蛇身互換' },
+        ];
+
+        function showLegendPanel(show) {
+            document.getElementById('legend-panel').style.display = show ? 'block' : 'none';
+            if (show) updateLegendPanel();
+        }
+
+        function updateLegendPanel() {
+            const grid = document.getElementById('legend-grid');
+            // 只顯示場上目前存在的道具，其他全部也顯示（方便理解）
+            const activeTypes = new Set((foods || []).map(f => f.type));
+            grid.innerHTML = LEGEND_DEFS.map(d => `
+                <div style="display:flex;align-items:center;gap:4px;padding:2px 4px;border-radius:4px;background:${activeTypes.has(d.type) ? 'rgba(0,0,0,0.08)' : 'transparent'};${activeTypes.has(d.type) ? 'border:1px solid rgba(0,0,0,0.12)' : ''}">
+                    <span style="font-size:13px;color:${d.color};font-weight:900;width:16px;text-align:center;">${d.icon}</span>
+                    <div>
+                        <div style="font-size:9px;font-weight:900;line-height:1.2;">${d.label}</div>
+                        <div style="font-size:8px;opacity:0.6;line-height:1.2;">${d.desc}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // =====================================================
+        // 再次挑戰（記住上次模式）
+        // =====================================================
+        let lastGameMode = 'single'; // 'single' | 'local2p' | 'online'
+
+        function requestRematch() {
+            if (lobbyId === 'LOCAL') {
+                startLocalTwoPlayerGame(); return;
+            }
+            if (playerRole === 'p1') {
+                window.peerModule.broadcastToGuests({ type: 'rematch' });
+            } else {
+                window.peerModule.sendToHost({ type: 'rematch' });
+            }
+            showInternalMessage(playerRole === 'p1' ? '已發送再戰邀請！' : '已發送再戰邀請！等待房主開始...');
+            returnToLobby();
+        }
+
+        // =====================================================
+        // 初始化
+        // =====================================================
         function initShow() {
             ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid-bg').trim();
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -2487,6 +2714,7 @@
         }
 
         window.onload = function() {
+            loadPlayerName();
             initShow();
         };
     </script>
